@@ -1,0 +1,100 @@
+---
+/**
+ * RunwayQueue — when the planes of one airport actually take off, compared with their schedule.
+ * Runs the assignment's test data through lib/flight-sim.ts (the FlightController rule: at most one
+ * takeoff per airport per 600 simulated seconds, checked on every 120-second tick) at build time
+ * and draws a static timeline: scheduled time, waiting, takeoff, and the runway blocked after it.
+ *
+ *   <RunwayQueue airport="BEG" from="00:20" to="01:04" />
+ */
+import { Sim, TEST_AIRPORTS, TEST_FLIGHTS, RUNWAY_INTERVAL, TICK_SIM_SECONDS, formatSimTime, secondOfDay } from "../../lib/flight-sim";
+
+interface Props { airport: string; from: string; to: string }
+const { airport, from, to } = Astro.props;
+const t0 = secondOfDay(from), t1 = secondOfDay(to);
+
+const sim = new Sim(TEST_AIRPORTS, TEST_FLIGHTS);
+while (sim.now < t1) sim.tick();
+const rows = sim.planes
+  .map((p, i) => ({ p, i }))
+  .filter(({ p }) => p.flight.from === airport && secondOfDay(p.flight.dep) >= t0 && secondOfDay(p.flight.dep) < t1)
+  .map(({ p, i }) => ({
+    label: `${p.flight.from} → ${p.flight.to}`,
+    sched: secondOfDay(p.flight.dep),
+    took: sim.events.find((e) => e.plane === i && e.kind === "TAKEOFF")?.t,
+  }));
+if (!rows.length || rows.some((r) => r.took === undefined)) throw new Error(`RunwayQueue: no complete takeoffs from ${airport} in ${from}–${to}`);
+
+/* geometry */
+const LEFT = 128, RIGHT = 16, ROW = 34, TOP = 12;
+const PX = 13; // px per simulated minute
+const W = LEFT + ((t1 - t0) / 60) * PX + RIGHT;
+const X = (t: number) => LEFT + ((t - t0) / 60) * PX;
+const laneY = TOP + rows.length * ROW + 8;
+const axisY = laneY + 34;
+const H = axisY + 26;
+const ticks: number[] = [];
+for (let t = Math.ceil(t0 / TICK_SIM_SECONDS) * TICK_SIM_SECONDS; t <= t1; t += TICK_SIM_SECONDS) ticks.push(t);
+const labels = ticks.filter((t) => t % 600 === 0);
+const desc = rows.map((r) => `${r.label} scheduled ${formatSimTime(r.sched)}, took off ${formatSimTime(r.took!)}`).join("; ");
+---
+
+<div class="rq">
+  <svg class="rq__svg" viewBox={`0 0 ${W} ${H}`} role="img" aria-label={`Runway of ${airport}: ${desc}.`}>
+    {ticks.map((t) => <line class="rq-tick" x1={X(t)} y1={TOP - 4} x2={X(t)} y2={axisY} />)}
+
+    {rows.map((r, k) => {
+      const y = TOP + k * ROW + ROW / 2;
+      const late = r.took! > r.sched;
+      return (
+        <g>
+          <text class="rq-lab" x="0" y={y + 4}>{r.label}</text>
+          {late && <line class="rq-wait" x1={X(r.sched)} y1={y} x2={X(r.took!)} y2={y} />}
+          <circle class="rq-sched" cx={X(r.sched)} cy={y} r="5" />
+          <circle class="rq-took" cx={X(r.took!)} cy={y} r="6" />
+          <text class="rq-time" x={X(r.took!) + 11} y={y + 4}>{formatSimTime(r.took!)}{late ? ` (+${(r.took! - r.sched) / 60} min)` : ""}</text>
+        </g>
+      );
+    })}
+
+    <text class="rq-lab" x="0" y={laneY + 15}>runway {airport}</text>
+    {rows.map((r) => (
+      <g>
+        <rect class="rq-busy" x={X(r.took!)} y={laneY} width={(RUNWAY_INTERVAL / 60) * PX} height="22" />
+        <text class="rq-busy-t" x={X(r.took!) + 5} y={laneY + 15}>busy 10 min</text>
+      </g>
+    ))}
+
+    <line class="rq-axis" x1={LEFT} y1={axisY} x2={W - RIGHT} y2={axisY} />
+    {labels.map((t) => <text class="rq-ax" x={X(t)} y={axisY + 18}>{formatSimTime(t)}</text>)}
+  </svg>
+  <ul class="rq__legend" aria-hidden="true">
+    <li><i class="rq__sw rq__sw--sched"></i>scheduled</li>
+    <li><i class="rq__sw rq__sw--took"></i>takeoff</li>
+    <li><i class="rq__sw rq__sw--tick"></i>clock tick (2 min)</li>
+  </ul>
+</div>
+
+<style>
+  .rq { border: 1px solid var(--line-strong); background: var(--bg); padding: 14px 16px 12px; display: flex; flex-direction: column; gap: 10px; }
+  .rq__svg { display: block; width: 100%; height: auto; min-width: 520px; }
+  .rq { overflow-x: auto; }
+  .rq-tick { stroke: var(--line); stroke-width: 1; }
+  .rq-lab { font-family: var(--font-mono); font-size: 12px; fill: var(--ink); }
+  .rq-time { font-family: var(--font-mono); font-size: 12px; fill: var(--ink-muted); }
+  .rq-wait { stroke: var(--project); stroke-width: 2; stroke-dasharray: 3 3; }
+  .rq-sched { fill: var(--bg); stroke: var(--project); stroke-width: 1.5; }
+  .rq-took { fill: var(--project); }
+  .rq-busy { fill: var(--project-soft); stroke: var(--project); stroke-width: 1; }
+  .rq-busy-t { font-family: var(--font-mono); font-size: 10px; fill: var(--ink); }
+  .rq-axis { stroke: var(--line-strong); }
+  .rq-ax { font-family: var(--font-mono); font-size: 11px; fill: var(--ink-faint); text-anchor: middle; }
+  .rq ul.rq__legend { display: flex; gap: 18px; flex-wrap: wrap; list-style: none; margin: 0; padding: 0; font-family: var(--font-mono); font-size: 12px; line-height: 18px; color: var(--ink-muted); }
+  .rq ul.rq__legend li { display: inline-flex; align-items: center; gap: 6px; padding: 0; margin: 0; }
+  .rq ul.rq__legend li::before { content: none; }
+  .rq__sw { display: inline-block; width: 10px; height: 10px; border-radius: 50%; }
+  .rq__sw--sched { border: 1.5px solid var(--project); }
+  .rq__sw--took { background: var(--project); }
+  .rq__sw--tick { width: 1px; height: 12px; border-radius: 0; background: var(--line-strong); }
+  @container screen (max-width: 640px) { .rq { padding: 12px; } }
+</style>

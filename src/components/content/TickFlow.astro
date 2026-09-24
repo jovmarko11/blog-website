@@ -1,0 +1,115 @@
+---
+/**
+ * TickFlow — one tick of the flight simulator: SimulationClock → SimulationEngine.onTick(now)
+ * (its five steps, in the order of SimulationEngine.java) → everything that listens through
+ * the SimulationListener interface. The engine only ever talks to interfaces; the GUI classes
+ * at the bottom are implementations it never names.
+ *
+ *   <TickFlow />
+ *
+ * Pure CSS: every box has its own keyframes and lights up in the project colour in turn.
+ * With prefers-reduced-motion everything is shown at once, fully lit.
+ */
+const steps = [
+  { m: "launchAirplanes(now)", via: "FlightController" },
+  { m: "updateAirplaneCoordinates(now)", via: "Airplane.update()" },
+  { m: "updateRules(now)", via: "AirspaceRule.onTickStart()" },
+  { m: "applyRules(now)", via: "AirspaceRule.apply()" },
+  { m: "notifyAirplanesUpdated()", via: "SimulationListener" },
+];
+const listeners = [
+  { cls: "MapView", does: "repaint()" },
+  { cls: "SimulationControlPanel", does: "refresh() → 10:04" },
+  { cls: "Program.informer", does: "[10:04] REDIRECTED LHR -> ATL" },
+];
+
+/* timeline, % of one cycle */
+const cycle = 9; // seconds
+const on = (id: string, s: number, e: number) =>
+  `@keyframes tf-${id}{0%,${s}%{color:var(--ink-muted);background:var(--surface);border-color:var(--line-strong)}` +
+  `${s + 1.5}%,${e}%{color:var(--ink);background:var(--project-soft);border-color:var(--project)}` +
+  `${e + 3}%,100%{color:var(--ink-muted);background:var(--surface);border-color:var(--line-strong)}}`;
+let keyframes = on("clock", 2, 12) + on("arrow1", 10, 16);
+steps.forEach((_, i) => { keyframes += on(`s${i}`, 14 + i * 11, 14 + i * 11 + 10); });
+keyframes += on("arrow2", 66, 74);
+listeners.forEach((_, i) => { keyframes += on(`l${i}`, 70 + i * 2, 90); });
+const anim = (id: string) => `animation: tf-${id} ${cycle}s linear infinite`;
+---
+
+<div class="tf" role="img" aria-label="Every 200 ms the SimulationClock calls SimulationEngine.onTick(now) through the ClockListener interface. The engine launches planes, moves them, lets the airspace rules act, and notifies every SimulationListener: the map repaints, the control panel updates the clock and the console prints events.">
+  <Fragment set:html={`<style>${keyframes}</style>`} />
+
+  <div class="tf__box tf__clock" style={anim("clock")}>
+    <b>SimulationClock</b>
+    <span>Swing Timer fires every 200 ms</span>
+    <span class="tf__code">simSeconds += 120</span>
+  </div>
+
+  <div class="tf__link" style={anim("arrow1")}><i>↓</i><span>ClockListener</span><span class="tf__code">onTick(now)</span></div>
+
+  <div class="tf__engine">
+    <p class="tf__h t-label">SimulationEngine.onTick(now)</p>
+    <ol class="tf__steps">
+      {steps.map((s, i) => (
+        <li class="tf__box tf__step" style={anim(`s${i}`)}>
+          <span class="tf__n">{i + 1}</span>
+          <span class="tf__code tf__m">{s.m}</span>
+          <span class="tf__via">{s.via}</span>
+        </li>
+      ))}
+    </ol>
+  </div>
+
+  <div class="tf__link" style={anim("arrow2")}><i>↓</i><span>SimulationListener</span><span class="tf__hint">the engine never names a GUI class</span></div>
+
+  <div class="tf__listeners">
+    {listeners.map((l, i) => (
+      <div class="tf__box" style={anim(`l${i}`)}>
+        <b>{l.cls}</b>
+        <span class="tf__code">{l.does}</span>
+      </div>
+    ))}
+  </div>
+</div>
+
+<style>
+  .tf {
+    display: flex; flex-direction: column; align-items: stretch; gap: 8px;
+    padding: 16px; border: 1px solid var(--line-strong); background: var(--bg);
+    font-family: var(--font-mono); font-size: 12px; line-height: 18px; font-variant-ligatures: none;
+  }
+  .tf p.tf__h { margin: 0 0 6px; color: var(--ink-faint); max-width: none; font-size: 11px; line-height: 16px; }
+  .tf__box {
+    display: flex; flex-direction: column; gap: 2px; min-width: 0;
+    padding: 7px 10px; border: 1px solid var(--line-strong); border-radius: var(--radius-s);
+    background: var(--surface); color: var(--ink-muted);
+  }
+  .tf__box b { color: inherit; font-weight: 700; }
+  .tf__code { color: inherit; overflow-wrap: anywhere; }
+  .tf__clock { flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; }
+  .tf__engine { padding: 10px 12px 12px; border: 1px solid var(--line); border-radius: var(--radius-s); }
+  .tf ol.tf__steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+  .tf ol.tf__steps li.tf__step { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; column-gap: 10px; align-items: baseline; margin: 0; padding: 5px 10px; font-size: 12.5px; line-height: 18px; }
+  .tf ol.tf__steps li::before { content: none; }
+  .tf__n { font-weight: 700; color: var(--project); }
+  .tf__m { font-weight: 600; }
+  .tf__via { font-size: 11px; opacity: 0.8; text-align: right; }
+  .tf__link {
+    display: flex; align-items: baseline; justify-content: center; flex-wrap: wrap; gap: 2px 10px;
+    padding: 3px 10px; border: 1px dashed var(--line-strong); border-radius: var(--radius-s);
+    color: var(--ink-muted); background: var(--surface); align-self: center;
+  }
+  .tf__link i { font-style: normal; color: var(--project); font-weight: 700; font-size: 14px; }
+  .tf__hint { font-size: 11px; color: var(--ink-faint); }
+  .tf__listeners { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+
+  @container screen (max-width: 640px) {
+    .tf { padding: 12px; }
+    .tf ol.tf__steps li.tf__step { grid-template-columns: 18px minmax(0, 1fr); }
+    .tf__via { grid-column: 2; text-align: left; }
+    .tf__listeners { grid-template-columns: minmax(0, 1fr); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .tf__box, .tf__link { animation: none !important; color: var(--ink); border-color: var(--project); }
+  }
+</style>

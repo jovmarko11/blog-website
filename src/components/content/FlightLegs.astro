@@ -1,0 +1,149 @@
+---
+/**
+ * FlightLegs — one plane of the flight simulator, tick by tick, next to the fields of the Java
+ * Airplane that place it. Runs lib/flight-sim.ts (a line-for-line TypeScript copy of Airplane,
+ * FlightController and the tick order of SimulationEngine, checked against the Java classes)
+ * on the assignment's test data at build time; scripts/flight-legs.ts plays the frames.
+ *
+ *   <FlightLegs from="LHR" to="JFK" redirectAt="10:04" redirectTo="ATL"
+ *               startAt="08:24" endAt="17:00" show={["LHR", "JFK", "ATL", "YYZ", "LAX"]} />
+ *
+ * Props
+ *   from, to        a flight from the test data
+ *   redirectAt/To   optional mid-flight redirect (on a tick: a multiple of 2 simulated minutes)
+ *   startAt, endAt  simulated time window shown
+ *   show            airport codes drawn on the map (the map box is fitted around them)
+ *   autoplay        play when scrolled into view (default true); never with reduced motion
+ * Wrap it in <Figure> to number it.
+ */
+import { buildScene, readout, svgInner, viewBox } from "../../lib/flight-legs";
+
+interface Props {
+  from: string; to: string;
+  redirectAt?: string; redirectTo?: string;
+  startAt: string; endAt: string;
+  show: string[];
+  autoplay?: boolean;
+}
+const { from, to, redirectAt, redirectTo, startAt, endAt, show, autoplay = true } = Astro.props;
+for (const c of [from, to, ...(redirectTo ? [redirectTo] : [])])
+  if (!show.includes(c)) throw new Error(`FlightLegs: "${c}" must be listed in show`);
+
+const scene = buildScene({ from, to, redirectAt, redirectTo, startAt, endAt, show });
+const f0 = scene.frames[0];
+const rows = readout(f0);
+const plain = (s: string) => s.replace(/<[^>]+>/g, "");
+const longest = Math.max(...scene.frames.map((f) => plain(f.caption).length));
+---
+
+<div class="fl" data-flight-legs data-autoplay={autoplay ? "true" : "false"} role="group" aria-label={`Flight ${from} to ${to}${redirectTo ? `, redirected to ${redirectTo}` : ""}, animated tick by tick`} tabindex="0"
+  style={`--cap-lines: ${Math.max(2, Math.ceil(longest / 70))}; --cap-lines-narrow: ${Math.max(3, Math.ceil(longest / 36))}`}>
+  <script is:inline type="application/json" data-scene set:html={JSON.stringify(scene)} />
+
+  <div class="fl__stage">
+    <svg class="fl__svg" viewBox={viewBox(scene)} aria-hidden="true" focusable="false">
+      <Fragment set:html={svgInner(scene, 0)} />
+    </svg>
+    <dl class="fl__readout" aria-label="Airplane fields">
+      <p class="fl__cls t-label">Airplane</p>
+      {rows.map((r) => (
+        <div class="fl__row" data-row={r.key}>
+          <dt>{r.name}</dt>
+          <dd data-val={r.key}>{r.value}</dd>
+        </div>
+      ))}
+    </dl>
+  </div>
+
+  <ul class="fl__legend" aria-label="Legend">
+    <li><i class="fl__sw fl__sw--flown"></i>flown</li>
+    <li><i class="fl__sw fl__sw--plan"></i>current leg</li>
+    {redirectTo && <li><i class="fl__sw fl__sw--old"></i>abandoned plan</li>}
+    <li><i class="fl__sw fl__sw--start"></i>(startX, startY)</li>
+  </ul>
+
+  <p class="fl__caption" data-caption aria-live="polite" set:html={f0.caption} />
+
+  <div class="fl__bar">
+    <div class="fl__ctrls" role="group" aria-label="Playback">
+      <button type="button" class="fl__btn" data-act="restart" aria-label="Restart">
+        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3 8a5 5 0 1 0 1.6-3.7M3 2.5V5.5h3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg>
+      </button>
+      <button type="button" class="fl__btn" data-act="play" aria-label="Play" data-state="paused">
+        <svg class="fl__ic-play" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M5 3l8 5-8 5z" fill="currentColor" /></svg>
+        <svg class="fl__ic-pause" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M4.5 3h2.6v10H4.5zM8.9 3h2.6v10H8.9z" fill="currentColor" /></svg>
+      </button>
+    </div>
+    <input class="fl__range" type="range" min="0" max={scene.frames.length - 1} value="0" step="1" data-range aria-label="Simulation time" />
+    <span class="fl__clock t-meta" data-clock>{f0.clock}</span>
+  </div>
+</div>
+
+<style>
+  .fl {
+    --fl-hl: var(--project, var(--accent));
+    --fl-hl-soft: var(--project-soft, var(--accent-soft));
+    border: 1px solid var(--line-strong);
+    background: var(--bg);
+    padding: 14px 16px 12px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .fl:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .fl__stage { display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: 16px; align-items: start; }
+  .fl__svg { display: block; width: 100%; height: auto; overflow: visible; }
+
+  .fl :global(.fl-grid) { stroke: var(--line); stroke-width: 1; }
+  .fl :global(.fl-plan) { stroke: var(--fl-hl); stroke-width: 1.5; stroke-dasharray: 5 5; fill: none; }
+  .fl :global(.fl-plan--old) { stroke: var(--ink-faint); opacity: 0.8; }
+  .fl :global(.fl-flown) { stroke: var(--fl-hl); stroke-width: 3; stroke-linecap: round; }
+  .fl :global(.fl-flown--old) { opacity: 0.55; }
+  .fl :global(.fl-start) { fill: none; stroke: var(--ink); stroke-width: 1.5; stroke-dasharray: 2 2; }
+  .fl :global(.fl-ap) { fill: var(--ink-muted); }
+  .fl :global(.fl-ap.is-target) { fill: var(--fl-hl); }
+  .fl :global(.fl-lab) { font-family: var(--font-mono); font-size: 13px; fill: var(--ink-muted); }
+  .fl :global(.fl-lab.is-target) { fill: var(--ink); font-weight: 700; }
+  .fl :global(.fl-lab--start) { font-size: 11px; fill: var(--ink-faint); }
+  .fl :global(.fl-plane) { fill: var(--fl-hl); stroke: var(--bg); stroke-width: 0.15; }
+
+  .fl__readout { margin: 0; padding: 10px 12px; background: var(--surface-sunken); border-radius: var(--radius-s); font-family: var(--font-mono); font-size: 12px; line-height: 18px; color: var(--code-ink); }
+  .fl p.fl__cls { margin: 0 0 6px; color: var(--code-ink); opacity: 0.6; max-width: none; font-size: 11px; line-height: 16px; }
+  .fl__row { display: flex; justify-content: space-between; gap: 10px; padding: 2px 6px; margin: 0 -6px; border-radius: var(--radius-s); transition: background-color 0.4s; }
+  .fl__row dt { opacity: 0.7; }
+  .fl__row dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; white-space: pre; }
+  .fl__row.is-changed { background: color-mix(in srgb, var(--fl-hl) 35%, transparent); }
+  .fl__row.is-changed dt { opacity: 1; }
+
+  .fl ul.fl__legend { display: flex; gap: 18px; flex-wrap: wrap; list-style: none; margin: 0; padding: 0; font-family: var(--font-mono); font-size: 12px; line-height: 18px; color: var(--ink-muted); }
+  .fl ul.fl__legend li { display: inline-flex; align-items: center; gap: 6px; padding: 0; margin: 0; }
+  .fl ul.fl__legend li::before { content: none; }
+  .fl__sw { display: inline-block; width: 18px; height: 0; border-top: 3px solid var(--fl-hl); }
+  .fl__sw--plan { border-top: 2px dashed var(--fl-hl); }
+  .fl__sw--old { border-top: 2px dashed var(--ink-faint); }
+  .fl__sw--start { width: 10px; height: 10px; border: 1.5px dashed var(--ink); border-radius: 50%; }
+
+  .fl p.fl__caption { margin: 0; max-width: none; font-size: 15px; line-height: 24px; color: var(--ink-muted); min-height: calc(var(--cap-lines) * 24px); }
+  .fl__caption :global(code) { font-family: var(--font-mono); font-size: 0.9em; color: var(--ink); }
+  .fl__caption :global(b) { color: var(--ink); font-weight: 700; }
+
+  .fl__bar { display: flex; align-items: center; gap: 12px; padding-top: 8px; border-top: 1px solid var(--line); }
+  .fl__ctrls { display: flex; gap: 6px; }
+  .fl__btn { min-width: var(--touch-target); min-height: var(--touch-target); display: inline-grid; place-items: center; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); border-radius: var(--radius-s); cursor: pointer; }
+  .fl__btn:hover { border-color: var(--fl-hl); }
+  .fl__btn:focus-visible, .fl__range:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .fl__btn[data-state="playing"] .fl__ic-play, .fl__btn[data-state="paused"] .fl__ic-pause { display: none; }
+  .fl__range { flex: 1; min-width: 0; accent-color: var(--fl-hl); height: var(--touch-target); }
+  .fl__clock { color: var(--ink); font-variant-numeric: tabular-nums; min-width: 5ch; text-align: right; }
+
+  @container screen (max-width: 640px) {
+    .fl { padding: 12px; }
+    .fl__stage { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+    .fl p.fl__caption { min-height: calc(var(--cap-lines-narrow) * 24px); }
+    .fl :global(.fl-lab) { font-size: 22px; }
+    .fl :global(.fl-lab--start) { font-size: 17px; }
+  }
+</style>
+
+<script>
+  import { initFlightLegs } from "../../scripts/flight-legs";
+  document.querySelectorAll<HTMLElement>("[data-flight-legs]").forEach(initFlightLegs);
+</script>

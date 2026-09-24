@@ -1,6 +1,6 @@
 ---
 title: "An air traffic simulator in Java"
-summary: "Airports, flights and planes moving across a map in simulated time, with runway queues, mid-flight redirects and CSV/JSON import that rolls back on failure."
+summary: "Planes crossing a map in simulated time, with runway queues and mid-flight redirects, built so the GUI only listens to the simulation."
 repo: jovmarko11/flight-simulator-java
 category: systems
 stack: [Java, Swing, Gson]
@@ -15,9 +15,271 @@ featured: true
 
 ## Idea
 
-A desktop application for entering airports and flights and then watching the traffic unfold on a map.
-Time runs at ten simulated minutes per real second, each airport clears at most one departure per ten
-minutes, and any plane can be redirected to another airport in mid-flight. The code is layered so that
-the GUI knows about the services, the services know about the model, and the model knows about nothing else.
+### What does it take to make planes move on a clock?
 
-<Note title="// WIP">The full write-up is on its way: the layered architecture, the simulation clock and the event system between them.</Note>
+The project for Object-Oriented Programming 2 at ETF was a desktop application for air traffic, built in
+three phases. First you enter airports and flights through forms, see them in tables and load or save them as
+CSV and JSON. Next the airports go on a map where you can click and filter them. Finally flights take off and
+cross the map in simulated time. The simulation starts at 00:00 and one real second is ten simulated minutes.
+Each airport lets at most one plane take off every ten minutes. Positions update every 200 ms.
+
+It was also the first program I wrote with a GUI, and I wanted the GUI to be the easy part to change. So
+the rule I set myself was to **program against interfaces**. The simulation never names a window,
+a panel or a file format. It talks to `SimulationListener`, `AirspaceRule` and `FileHandler`, and the rest of
+the program plugs into those. Everything the assignment didn't ask for was added on top of that rule:
+redirecting a plane in mid-flight by clicking it and then an airport, pluggable airspace rules (a
+`Hurricane` that diverts planes is in the code, switched off), plane silhouettes that turn to face their
+heading instead of the required blue circles, zoom, and an import that restores the old data when a file is bad.
+
+## Architecture
+
+### One tick, many listeners
+
+The code is split into three layers with the dependencies pointing inwards: `gui` knows about the services
+and the simulation, `simulation` knows about the model, and the model (`Airport`, `Flight`) knows about
+nothing else. Figure 01 shows how the simulation layer reaches the screen without depending on it.
+
+<Figure n="01" caption="One tick. The clock calls the engine through <code>ClockListener</code>, the engine does five things in a fixed order, and then it tells every <code>SimulationListener</code> that the planes moved. The three boxes at the bottom are GUI and console code the engine never imports.">
+  <TickFlow />
+</Figure>
+
+- **SimulationClock** wraps a Swing `Timer`. Every 200 ms it adds 120 simulated seconds and calls `onTick(now)`
+  on its listeners. Pause and resume only stop and start the timer; reset also sets the time back to 00:00.
+- **SimulationEngine** owns the planes. It asks `FlightController` which planes may take off, moves every
+  plane, lets each `AirspaceRule` act on the planes in the air, and broadcasts what happened.
+- **Airplane** is one plane: its state (`WAITING`, `FLYING`, `LANDED`), its current leg and its position.
+- **GUI**: `MapView` repaints, `SimulationControlPanel` updates the clock label and the buttons, and a
+  small listener in `Program` prints every takeoff, landing and redirect to the console.
+
+The contract between the two sides is a single interface with three default methods, so a listener
+implements only what it cares about:
+
+<CodeBlock file="src/simulation/interfaces/SimulationListener.java" meta="Java" start={5} code={`
+public interface SimulationListener {
+    // The list of planes changed: the GUI has to rebuild its components
+    default void onAirplanesChanged() {}
+
+    // One simulation tick passed: plane positions moved
+    default void onAirplanesUpdated() {}
+
+    // A single plane took off, landed or was redirected
+    default void onAirplaneEvent(Airplane a, AirplaneEvent event, long now)    {}
+}
+`} />
+
+The data side works the same way. `AirportService` and `FlightService` extend a small `ChangeNotifier`, and the
+tables, the flight form's airport lists and the map's airport filter subscribe to it. Adding an airport
+anywhere, by hand or by import, refreshes every view that shows airports, and none of the services know
+those views exist.
+
+## Implementation
+
+### Position is a function of time
+
+The part that took the longest was the flight itself. The obvious way is to move each plane a little on
+every tick. I compute the position from the clock instead. When a plane takes off it remembers where its
+current **leg** started and when. On every tick the distance it has covered is its speed multiplied by the
+time since then, and the plane is placed that fraction of the way along the leg. A redirect doesn't change the
+formula. It only starts a new leg from wherever the plane is. Figure 02 runs a copy of this code on the
+assignment's test data. The LHR→JFK flight gets redirected to Atlanta at 10:04, the same redirect as in the
+recording in video 04.
+
+<Figure n="02" caption="The LHR→JFK flight from the test data, one frame per 2-minute tick, redirected to ATL at 10:04. Next to the map are the fields of <code>Airplane</code> on that tick; the rows that change light up. The model is a TypeScript copy of the Java class and matched it exactly on 300 random scenarios (see Results).">
+  <FlightLegs from="LHR" to="JFK" redirectAt="10:04" redirectTo="ATL" startAt="08:24" endAt="17:00" show={["LHR", "JFK", "ATL", "YYZ"]} />
+</Figure>
+
+<CodeBlock file="src/simulation/Airplane.java" meta="Java" start={71} highlight={[75, 76, 78]} code={`
+    public boolean update(long now){
+        // returns true if the plane has just landed
+        if (state != State.FLYING) return false;
+
+        double traveled = speed * (now - startSimTime);
+        double total = GeometryUtils.distance(startX, startY, target.getX(), target.getY());
+
+        if (traveled >= total){
+            x = target.getX(); y = target.getY();
+            state = State.LANDED;
+            return true;
+        }
+
+        double f = traveled / total;
+        x = GeometryUtils.lerp(startX, target.getX(), f);
+        y = GeometryUtils.lerp(startY, target.getY(), f);
+        return false;
+    }
+`} />
+
+`speed` is set once, at takeoff, as the distance to the destination divided by the planned duration, so an
+undisturbed plane arrives exactly on schedule. Nothing in `update()` depends on the previous tick, so a
+paused clock, a late timer or a skipped repaint cannot push a plane off its line. A redirect only
+replaces the three values that define the leg:
+
+<CodeBlock file="src/simulation/Airplane.java" meta="Java" start={46} highlight={[49, 50, 51, 52]} code={`
+    public boolean redirect(Airport newDestination, long now) {
+        switch (state) {
+            case FLYING -> {
+                startX = x;
+                startY = y;
+                startSimTime = now;
+                target = newDestination;
+                return true;
+            }
+            case WAITING -> {
+                target = newDestination;
+                return true;
+            }
+            default -> {return false;}
+        }
+    }
+`} />
+
+The engine's tick is the order of those steps and nothing else. Launching comes before moving, so a plane
+that takes off on this tick is already placed by `update()` in the same tick:
+
+<CodeBlock file="src/simulation/SimulationEngine.java" meta="Java" start={37} code={`
+    @Override
+    public void onTick(long now) {
+        launchAirplanes(now);
+        updateAirplaneCoordinates(now);
+        updateRules(now);
+        applyRules(now);
+        notifyAirplanesUpdated();
+    }
+`} />
+
+### One runway, ten minutes
+
+The runway rule lives in its own class. `FlightController` remembers when each airport last let a plane
+go and skips any waiting plane whose runway was used less than 600 simulated seconds ago. The engine keeps
+its planes sorted by departure time, so the first plane in the list gets the free slot and the rest wait
+their turn.
+
+<CodeBlock file="src/simulation/FlightController.java" meta="Java" start={16} highlight={[27]} code={`
+    public List<Airplane> processTakeoffs(List<Airplane> airplanes, long now){
+        List<Airplane> tookOff = new ArrayList<>();
+        for (Airplane a : airplanes) {
+            if (a.getState() != Airplane.State.WAITING) continue;
+
+            long dep = a.getFlight().getDepartureTime().toSecondOfDay();
+            if (now < dep) continue;
+
+            Airport from = a.getFlight().getFrom();
+            Long last = lastTakeoff.get(from);
+
+            if (last != null && now - last < RUNWAY_INTERVAL) continue;
+
+            a.takeOff(now);
+            tookOff.add(a);
+            lastTakeoff.put(from, now);
+        }
+        return tookOff;
+    }
+`} />
+
+<Figure n="03" caption="Belgrade in the assignment's test data: two flights at 00:30 and one at 00:35. The second waits for the runway until 00:40, and the third, due at 00:35, has to wait behind it until 00:50. Because the clock moves in 2-minute steps, a flight scheduled between two ticks leaves on the next one (DXB→SYD, due at 02:15, leaves at 02:16).">
+  <RunwayQueue airport="BEG" from="00:24" to="01:06" />
+</Figure>
+
+### Rules and formats you can plug in
+
+Anything that should happen to planes in the air is an `AirspaceRule`. The engine calls `onTickStart()` once
+per tick and `apply()` for every flying plane, and it knows nothing about what a rule does:
+
+<CodeBlock file="src/simulation/interfaces/AirspaceRule.java" meta="Java" start={6} code={`
+public interface AirspaceRule {
+    // Applied to every flying plane, once per tick
+    void apply(Airplane a, long now, SimulationEngine simulationEngine);
+
+    // Called once per tick, before apply(), so the rule can update its own state
+    default void onTickStart(long now) {}
+
+    // Restores the rule to its initial state
+    default void reset() {}
+}
+`} />
+
+`Hurricane` implements both `AirspaceRule` and the map's `Overlay`, so one object draws itself as a red
+circle and diverts every plane that flies into it to the nearest other airport. It uses the same public
+`redirectAirplane()` as a mouse click. The assignment didn't ask for it, so it isn't registered by default.
+Turning it on takes two lines: `mapView.addOverlay(h)` and `simulationEngine.addRule(h)`.
+
+<CodeBlock file="src/gui/mapPanel/mapComponent/Hurricane.java" meta="Java" start={44} highlight={[48, 49]} code={`
+    @Override
+    public void apply(Airplane a, long now, SimulationEngine simulationEngine) {
+        if (!handled.contains(a)){
+            if (GeometryUtils.pointInCircle(a.getX(), a.getY(), x, y, radius)) {
+                Airport nearest = AirportUtils.findNearest(as.getAirports(), a.getX(), a.getY(), a.getFlight().getTo());
+                simulationEngine.redirectAirplane(a, nearest);
+                handled.add(a);
+                System.out.printf("[%s] %-10s %s -> %s (hurricane)%n",
+                        SimulationClock.formatSimTime(now), "DIVERTED",
+                        a.getFlight().getFrom().getCode(), nearest.getCode());
+            }
+        }
+    }
+`} />
+
+Files follow the same idea. `FileHandler` declares `read` and `write`, and its default methods parse and
+validate one airport or one flight. `JsonHandler` reads the file with Gson and then feeds every record through
+the same `parseAirport()` and `parseFlight()` as the CSV reader, so both formats reject exactly the same
+mistakes with the same messages. `DataService` holds one handler per format and never checks which one
+it is using.
+
+## Results
+
+### It flies the assignment's timetable
+
+<Media video="/media/flight-simulator-java/simulation.mp4" poster="/media/flight-simulator-java/simulation.jpg" alt="The program's map tab zoomed in on the test data: planes take off from their airports, turn toward their destinations and cross the map while the simulation clock runs from 00:00 to 18:00. At 10:00 the plane flying from London to New York is selected and sent to Atlanta." n="04" caption="The real program with the assignment's test file, recorded from 00:00 to 18:00 at 6× the program's speed. At 10:00 the LHR→JFK plane is clicked, then ATL. It turns south-west and lands in Atlanta at 16:52. The map was zoomed in with the mouse wheel first." />
+
+The console log of the same session. The `[time] EVENT FROM -> TARGET` lines come from the listener in
+`Program`, and the target is where the plane is heading at that moment:
+
+<Terminal lines={[
+  { cmd: "java -cp out:gson-2.10.jar Main", out: "[00:30] TAKEOFF    BEG -> JFK\n[00:40] TAKEOFF    BEG -> FRA\n[00:50] TAKEOFF    BEG -> LHR\n[02:16] TAKEOFF    DXB -> SYD\n[02:40] LANDED     BEG -> FRA\n[03:40] LANDED     BEG -> LHR\n[06:46] TAKEOFF    BEG -> IST\n[07:00] TAKEOFF    ATL -> JFK\n[07:30] LANDED     BEG -> JFK\n[08:22] LANDED     BEG -> IST\n[08:30] TAKEOFF    LHR -> JFK\n[09:00] TAKEOFF    JFK -> YYZ\n[09:10] TAKEOFF    IST -> FRA\n[09:30] LANDED     ATL -> JFK\n[09:46] TAKEOFF    HND -> SIN\n[10:00] TAKEOFF    LHR -> DXB\n[10:04] REDIRECTED LHR -> ATL\n[10:30] LANDED     JFK -> YYZ" },
+]} />
+
+Each delayed Belgrade flight still flies its full duration: BEG→FRA leaves at 00:40 and lands 120 minutes
+later at 02:40, and BEG→LHR leaves at 00:50 and lands 170 minutes later at 03:40.
+
+For this write-up I also drove the real `SimulationEngine` without the window, on random airports, flights
+and mid-flight redirects, and checked the rules after every tick:
+
+<DataTable
+  n="01"
+  caption="300 random scenarios with 2–7 airports, up to 25 flights, redirects on random ticks in the first 20 simulated hours, then run until every plane had landed. The model comparison uses its own 300 scenarios and compares state, target and exact coordinates on every tick."
+  head={["check", "result"]}
+  rows={[
+    ["no plane takes off before its scheduled time", "0 violations"],
+    ["at least 600 s between two takeoffs from one airport", "0 violations"],
+    ["no plane waits while its runway is free", "0 violations"],
+    ["every plane lands exactly on its current target", "0 violations"],
+    ["not redirected: lands its flight time after takeoff, within one tick", "0 violations"],
+    ["redirected: lands when remaining distance ÷ speed says (322 planes)", "0 violations"],
+    ["TypeScript model of figure 02 vs. Java, 1,763,280 plane-ticks", "0 differences"],
+  ]}
+/>
+
+In total that is 241 million checks. The model behind figure 02 isn't an approximation: it produces the
+same doubles as the Java code, bit for bit, including 21,733 redirects.
+
+## Lessons
+
+### What my first GUI taught me
+
+- **Interfaces pay off when the second implementation arrives.** CSV and JSON behind one `FileHandler`, three
+  unrelated listeners on one `SimulationListener`, and two airspace rules (`Hurricane` and a fourth-quadrant
+  ban in `Program`, both off by default) that the engine can run without knowing either of them. None of these needed a change in
+  the code that uses them.
+- **Derive state from the clock instead of accumulating it.** Because a plane's position is computed from
+  `now`, pause, reset and redirect became small: stop the timer, set the time to zero, start a new leg.
+- **Connecting back end and front end is its own design problem.** It was my first time designing a user
+  interface, and the part I enjoyed most. The service layer notifies, the panels listen, and all colours,
+  fonts and spacing live in one `Theme` class. That kept the look consistent and made redesigning it cheap.
+
+<Note kind="wrong">
+Redirecting planes gave me the most trouble. In my first version a plane was declared landed when the flight
+time it had computed before takeoff ran out. Redirecting it changes how long the flight really takes, so the
+plane landed on the old schedule, somewhere in the middle of the map, and simply disappeared. The fix was to
+stop asking "is the time up?" and ask "has the plane reached its target?". Now a plane lands when the distance
+it has covered on its current leg reaches the length of that leg, whichever airport the target currently is.
+</Note>
