@@ -1,47 +1,125 @@
 ---
 /**
- * Venn — software ∩ AI ∩ math, with the fields I'd like to bring in around it.
- * The circles draw themselves when scrolled into view (parent must have data-reveal).
+ * Venn — software ∩ AI ∩ math, alive.
+ * The three fields drift slowly on small orbits, so their overlap keeps changing
+ * shape; the triple overlap is filled and "here" always sits in its centre.
+ * Physics, biology and economics orbit around the whole thing.
+ * SVG SMIL animation (no JS); circles draw themselves when scrolled into view
+ * (parent needs data-reveal). Paused for prefers-reduced-motion.
  */
-const circles = [
-  { cx: 150, cy: 110, label: "software", lx: 92, ly: 78 },
-  { cx: 230, cy: 110, label: "AI", lx: 268, ly: 78 },
-  { cx: 190, cy: 175, label: "math", lx: 190, ly: 236 },
+const R = 70, ORBIT = 11, DUR = 16, STEPS = 24;
+const base = [
+  { x: 150, y: 116, label: "software", lx: -46, ly: -40 },
+  { x: 230, y: 116, label: "AI", lx: 40, ly: -40 },
+  { x: 190, y: 184, label: "math", lx: 0, ly: 58 },
 ];
-const outer = [
-  { x: 24, y: 196, t: "physics" },
-  { x: 356, y: 196, t: "biology", end: true },
-  { x: 356, y: 30, t: "economics", end: true },
-];
+const loop = (cx: number, cy: number, r: number, phase: number, rx = r, ry = r) =>
+  Array.from({ length: STEPS + 1 }, (_, i) => {
+    const a = phase + (2 * Math.PI * i) / STEPS;
+    return [cx + rx * Math.cos(a), cy + ry * Math.sin(a)];
+  });
+const paths = base.map((c, i) => loop(c.x, c.y, ORBIT, (i * 2 * Math.PI) / 3));
+const vals = (pts: number[][], k: 0 | 1) => pts.map((p) => p[k].toFixed(1)).join(";");
+const centroid = paths[0].map((_, j) => [0, 1].map((k) => (paths[0][j][k] + paths[1][j][k] + paths[2][j][k]) / 3));
+
+const outer = ["physics", "biology", "economics"].map((t, i) => ({ t, pts: loop(190, 150, 0, (i * 2 * Math.PI) / 3 - Math.PI / 2, 178, 128) }));
+const circleAnim = (i: number) => ({ cx: vals(paths[i], 0), cy: vals(paths[i], 1) });
 ---
 
-<svg class="venn" viewBox="0 0 380 260" role="img" aria-label="Where software, AI and mathematics overlap, with physics, biology and economics around them.">
-  {circles.map((c, i) => (
-    <>
-      <circle class="venn__c" cx={c.cx} cy={c.cy} r="72" pathLength="1" style={`--i:${i}`} />
-      <text class="venn__l" x={c.lx} y={c.ly} text-anchor="middle" style={`--i:${i}`}>{c.label}</text>
-    </>
+<svg class="venn" viewBox="0 0 380 300" role="img" aria-label="Software, AI and mathematics overlap, and I am where all three meet; physics, biology and economics orbit around them." data-venn>
+  <defs>
+    {base.map((_, i) => (
+      <clipPath id={`venn-clip-${i}`}>
+        <circle r={R} cx={base[i].x} cy={base[i].y}>
+          <animate attributeName="cx" dur={`${DUR}s`} repeatCount="indefinite" values={circleAnim(i).cx} />
+          <animate attributeName="cy" dur={`${DUR}s`} repeatCount="indefinite" values={circleAnim(i).cy} />
+        </circle>
+      </clipPath>
+    ))}
+  </defs>
+
+  <ellipse class="venn__ring" cx="190" cy="150" rx="178" ry="128" />
+
+  {base.map((c, i) => (
+    <circle class="venn__c" r={R} cx={c.x} cy={c.y} pathLength="1" style={`--i:${i}`}>
+      <animate attributeName="cx" dur={`${DUR}s`} repeatCount="indefinite" values={circleAnim(i).cx} />
+      <animate attributeName="cy" dur={`${DUR}s`} repeatCount="indefinite" values={circleAnim(i).cy} />
+    </circle>
   ))}
-  <circle class="venn__here" cx="190" cy="134" r="5" />
-  <text class="venn__here-t" x="190" y="122" text-anchor="middle">here</text>
-  {outer.map((o, i) => <text class="venn__o" x={o.x} y={o.y} text-anchor={o.end ? "end" : "start"} style={`--i:${i}`}>+ {o.t}</text>)}
+
+  <!-- triple overlap: a rectangle clipped by all three circles -->
+  <g clip-path="url(#venn-clip-0)"><g clip-path="url(#venn-clip-1)"><g clip-path="url(#venn-clip-2)">
+    <rect class="venn__core" x="0" y="0" width="380" height="300" />
+  </g></g></g>
+
+  {base.map((c, i) => (
+    <text class="venn__l" x={c.x + c.lx} y={c.y + c.ly} text-anchor="middle" style={`--i:${i}`}>
+      {c.label}
+      <animate attributeName="x" dur={`${DUR}s`} repeatCount="indefinite" values={paths[i].map((p) => (p[0] + c.lx).toFixed(1)).join(";")} />
+      <animate attributeName="y" dur={`${DUR}s`} repeatCount="indefinite" values={paths[i].map((p) => (p[1] + c.ly).toFixed(1)).join(";")} />
+    </text>
+  ))}
+
+  <g class="venn__here">
+    <circle class="venn__here-pulse" r="5" cx={centroid[0][0]} cy={centroid[0][1]}>
+      <animate attributeName="cx" dur={`${DUR}s`} repeatCount="indefinite" values={centroid.map((p) => p[0].toFixed(1)).join(";")} />
+      <animate attributeName="cy" dur={`${DUR}s`} repeatCount="indefinite" values={centroid.map((p) => p[1].toFixed(1)).join(";")} />
+      <animate attributeName="r" dur="2.6s" repeatCount="indefinite" values="5;16" />
+      <animate attributeName="opacity" dur="2.6s" repeatCount="indefinite" values="0.7;0" />
+    </circle>
+    <circle class="venn__here-dot" r="5" cx={centroid[0][0]} cy={centroid[0][1]}>
+      <animate attributeName="cx" dur={`${DUR}s`} repeatCount="indefinite" values={centroid.map((p) => p[0].toFixed(1)).join(";")} />
+      <animate attributeName="cy" dur={`${DUR}s`} repeatCount="indefinite" values={centroid.map((p) => p[1].toFixed(1)).join(";")} />
+    </circle>
+    <text class="venn__here-t" text-anchor="middle" x={centroid[0][0]} y={centroid[0][1] - 12}>
+      here
+      <animate attributeName="x" dur={`${DUR}s`} repeatCount="indefinite" values={centroid.map((p) => p[0].toFixed(1)).join(";")} />
+      <animate attributeName="y" dur={`${DUR}s`} repeatCount="indefinite" values={centroid.map((p) => (p[1] - 12).toFixed(1)).join(";")} />
+    </text>
+  </g>
+
+  {outer.map((o, i) => (
+    <g class="venn__o" style={`--i:${i}`}>
+      <circle r="3" cx={o.pts[0][0]} cy={o.pts[0][1]}>
+        <animate attributeName="cx" dur="60s" repeatCount="indefinite" values={vals(o.pts, 0)} />
+        <animate attributeName="cy" dur="60s" repeatCount="indefinite" values={vals(o.pts, 1)} />
+      </circle>
+      <text x={o.pts[0][0] + 8} y={o.pts[0][1] + 4}>
+        + {o.t}
+        <animate attributeName="x" dur="60s" repeatCount="indefinite" values={o.pts.map((p) => (p[0] + 8).toFixed(1)).join(";")} />
+        <animate attributeName="y" dur="60s" repeatCount="indefinite" values={o.pts.map((p) => (p[1] + 4).toFixed(1)).join(";")} />
+      </text>
+    </g>
+  ))}
 </svg>
 
+<script>
+  // SMIL ignores CSS media queries: stop it explicitly for reduced motion.
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    document.querySelectorAll<SVGSVGElement>("[data-venn]").forEach((svg) => { svg.pauseAnimations(); svg.setCurrentTime(0); });
+  }
+</script>
+
 <style>
-  .venn { display: block; width: 100%; max-width: 420px; height: auto; overflow: visible; }
-  .venn__c { fill: color-mix(in srgb, var(--accent) 6%, transparent); stroke: var(--control-border); stroke-width: 1.5; }
+  .venn { display: block; width: 100%; max-width: 440px; height: auto; overflow: visible; }
+  .venn__ring { fill: none; stroke: var(--line-strong); stroke-dasharray: 2 6; }
+  .venn__c { fill: color-mix(in srgb, var(--accent) 5%, transparent); stroke: var(--control-border); stroke-width: 1.5; }
+  .venn__core { fill: color-mix(in srgb, var(--accent) 30%, transparent); }
   .venn__l { fill: var(--ink); font-family: var(--font-mono); font-size: 13px; font-weight: 700; }
-  .venn__here { fill: var(--accent); }
-  .venn__here-t { fill: var(--accent); font-family: var(--font-mono); font-size: 11px; font-weight: 700; }
-  .venn__o { fill: var(--ink-faint); font-family: var(--font-mono); font-size: 12px; }
+  .venn__here-dot { fill: var(--accent); }
+  .venn__here-pulse { fill: none; stroke: var(--accent); stroke-width: 1.5; }
+  .venn__here-t { fill: var(--accent); font-family: var(--font-mono); font-size: 11px; font-weight: 700; paint-order: stroke; stroke: var(--bg); stroke-width: 3px; }
+  .venn__o circle { fill: var(--ink-faint); }
+  .venn__o text { fill: var(--ink-faint); font-family: var(--font-mono); font-size: 12px; }
 
   @media (prefers-reduced-motion: no-preference) {
     :global(.js) .venn__c { stroke-dasharray: 1; stroke-dashoffset: 1; }
-    :global(.js) .venn__l, :global(.js) .venn__o, :global(.js) .venn__here, :global(.js) .venn__here-t { opacity: 0; }
+    :global(.js) .venn__l, :global(.js) .venn__o, :global(.js) .venn__here, :global(.js) .venn__core { opacity: 0; }
     :global(.js .is-in) .venn__c { animation: vdraw 1.1s cubic-bezier(0.5, 0, 0.3, 1) calc(var(--i) * 0.25s) forwards; }
     :global(.js .is-in) .venn__l { animation: vfade 0.5s ease calc(var(--i) * 0.25s + 0.6s) forwards; }
-    :global(.js .is-in) .venn__here, :global(.js .is-in) .venn__here-t { animation: vfade 0.5s ease 1.4s forwards; }
-    :global(.js .is-in) .venn__o { animation: vfade 0.5s ease calc(var(--i) * 0.15s + 1.7s) forwards; }
+    :global(.js .is-in) .venn__core { animation: vfade 0.8s ease 1.3s forwards; }
+    :global(.js .is-in) .venn__here { animation: vfade 0.5s ease 1.6s forwards; }
+    :global(.js .is-in) .venn__o { animation: vfade 0.6s ease calc(var(--i) * 0.2s + 1.9s) forwards; }
   }
   @keyframes vdraw { to { stroke-dashoffset: 0; } }
   @keyframes vfade { to { opacity: 1; } }

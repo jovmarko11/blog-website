@@ -1,0 +1,23 @@
+---
+title: "An air traffic simulator in Java"
+summary: "Airports, flights and planes moving across a map in simulated time, with runway queues, mid-flight redirects and CSV/JSON import that rolls back on failure."
+repo: jovmarko11/flight-simulator-java
+category: systems
+stack: [Java, Swing, Gson]
+status: shipped
+period: { start: "2026-06", end: "2026-09" }
+course: { code: OOP2, name: "Object-Oriented Programming 2", year: 2026 }
+spec: { label: Sim speed, value: "10 min per second" }
+plot: { x: 0.5, y: 0.15 }
+hue: sky
+featured: true
+---
+
+## Idea
+
+A desktop application for entering airports and flights and then watching the traffic unfold on a map.
+Time runs at ten simulated minutes per real second, each airport clears at most one departure per ten
+minutes, and any plane can be redirected to another airport in mid-flight. The code is layered so that
+the GUI knows about the services, the services know about the model, and the model knows about nothing else.
+
+<Note title="// WIP">The full write-up is on its way: the layered architecture, the simulation clock and the event system between them.</Note>

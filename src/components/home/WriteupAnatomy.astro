@@ -1,0 +1,126 @@
+---
+/**
+ * WriteupAnatomy — "02 — How to read a project": the five sections every write-up has,
+ * on one rail, with the same terminal commands the project pages use (project/sections.ts).
+ * On reveal the rail fills and the steps light up in order; after that a small pulse
+ * travels along it from time to time.
+ */
+import type { CollectionEntry } from "astro:content";
+import Label from "../ui/Label.astro";
+import { SECTIONS, SECTION_ORDER } from "../project/sections";
+import { anatomy } from "../../data/home";
+
+interface Props {
+  /** The write-up shown as the example (optional). */
+  example?: CollectionEntry<"projects">;
+}
+const { example } = Astro.props;
+const steps = SECTION_ORDER.map((key, i) => ({ key, i, ...SECTIONS[key], ...anatomy.steps[key] }));
+---
+
+<section class="wrap sec" id="how-to-read">
+  <div class="sec__head" data-reveal>
+    <Label index="02 —">How to read a project</Label>
+    <h2 class="sec__title">{anatomy.title}</h2>
+    <p class="sec__intro">{anatomy.intro}</p>
+  </div>
+
+  <div class="rail" data-reveal>
+    <span class="rail__line" aria-hidden="true"><span class="rail__fill"></span><span class="rail__pulse"></span></span>
+    <ol class="rail__steps" role="list">
+    {steps.map((s) => (
+      <li class="step" style={`--i:${s.i}`}>
+        <span class="step__node" aria-hidden="true">{String(s.i + 1).padStart(2, "0")}</span>
+        <code class="step__cmd"><span aria-hidden="true">$ </span>{s.cmd} {s.arg}</code>
+        <h3 class="step__name">{s.name}</h3>
+        <p class="step__text">{s.text}</p>
+      </li>
+    ))}
+    </ol>
+  </div>
+
+  {example && (
+    <a class="example" data-reveal href={`/projects/${example.id}/`} style={`--c: var(--hue-${example.data.hue})`}>
+      <span class="example__k">see it in practice</span>
+      <span class="example__t">{example.data.title}</span>
+      <span class="example__go">read the write-up →</span>
+    </a>
+  )}
+</section>
+
+<style>
+  .sec { padding-block: 104px 112px; }
+  .sec__title { margin-top: 10px; font-size: 32px; line-height: 40px; font-weight: 700; letter-spacing: -0.02em; }
+  .sec__intro { margin-top: 10px; max-width: 60ch; font-size: 17px; line-height: 28px; color: var(--ink-muted); }
+
+  /* ---------- the rail ---------- */
+  .rail { position: relative; margin-top: 44px; }
+  .rail__steps { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 24px; margin: 0; padding: 0; list-style: none; }
+  .rail__line { position: absolute; left: 17px; right: 17px; top: 17px; height: 1px; background: var(--line-strong); }
+  .rail__fill { position: absolute; inset: 0; background: var(--accent); transform-origin: left; }
+  .rail__pulse { position: absolute; top: -3px; left: 0; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px 2px color-mix(in srgb, var(--accent) 60%, transparent); opacity: 0; }
+
+  .step { position: relative; display: flex; flex-direction: column; gap: 8px; }
+  .step__node {
+    position: relative; z-index: 1;
+    display: grid; place-items: center; width: 35px; height: 35px; margin-bottom: 10px;
+    border: 1px solid var(--accent); border-radius: 50%; background: var(--bg);
+    font-family: var(--font-mono); font-size: 12px; font-weight: 700; color: var(--accent);
+    transition: background 0.3s, color 0.3s;
+  }
+  .step__cmd { align-self: flex-start; font-family: var(--font-mono); font-size: 12px; color: var(--ink-faint); white-space: nowrap; }
+  .step__cmd span { color: var(--accent); }
+  .step__name { font-size: 19px; line-height: 24px; font-weight: 700; color: var(--ink); }
+  .step__text { font-size: 14px; line-height: 22px; color: var(--ink-muted); }
+  .step:hover .step__node { background: var(--accent); color: var(--on-accent); }
+
+  /* ---------- example link ---------- */
+  .example {
+    display: flex; align-items: baseline; gap: 16px; flex-wrap: wrap;
+    margin-top: 48px; padding: 16px 20px;
+    border: 1px dashed var(--line-strong); border-left: 2px solid var(--c); border-radius: var(--radius-m);
+    color: inherit; transition: border-color 0.2s, background 0.2s;
+  }
+  .example__k { font-family: var(--font-mono); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-faint); }
+  .example__t { font-size: 17px; font-weight: 700; color: var(--ink); }
+  .example__go { margin-left: auto; font-family: var(--font-mono); font-size: 13px; color: var(--accent); transition: transform 0.15s; }
+  .example:hover { border-color: var(--accent); border-left-color: var(--c); background: var(--surface); }
+  .example:hover .example__go { transform: translateX(4px); }
+
+  /* ---------- motion ---------- */
+  @media (prefers-reduced-motion: no-preference) {
+    :global(.js) .rail__fill { transform: scaleX(0); transition: transform 1.4s cubic-bezier(0.4, 0, 0.2, 1) 0.2s; }
+    :global(.js) .rail.is-in .rail__fill { transform: scaleX(1); }
+    :global(.js) .rail .step { opacity: 0.25; transform: translateY(8px); transition: opacity 0.5s ease, transform 0.5s ease; transition-delay: calc(0.2s + var(--i) * 0.28s); }
+    :global(.js) .rail.is-in .step { opacity: 1; transform: none; }
+    :global(.js) .rail.is-in .rail__pulse { animation: pulse 7s cubic-bezier(0.45, 0, 0.55, 1) 2.2s infinite; }
+    @keyframes pulse {
+      0% { left: 0; opacity: 0; }
+      4% { opacity: 1; }
+      36% { opacity: 1; }
+      40%, 100% { left: 100%; opacity: 0; }
+    }
+  }
+
+  /* ---------- small screens: the rail turns vertical ---------- */
+  @container screen (max-width: 900px) {
+    .rail__steps { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+    .rail__line { left: 17px; right: auto; top: 17px; bottom: 17px; width: 1px; height: auto; }
+    .rail__fill { transform-origin: top; }
+    .rail__pulse { left: -3px !important; top: 0; }
+    .step { padding-left: 56px; gap: 4px; }
+    .step__node { position: absolute; left: 0; top: 0; margin: 0; }
+    @media (prefers-reduced-motion: no-preference) {
+      :global(.js) .rail__fill { transform: scaleY(0); }
+      :global(.js) .rail.is-in .rail__fill { transform: scaleY(1); }
+      :global(.js) .rail.is-in .rail__pulse { animation-name: pulse-v; }
+      @keyframes pulse-v { 0% { top: 0; opacity: 0; } 4%, 36% { opacity: 1; } 40%, 100% { top: 100%; opacity: 0; } }
+    }
+  }
+  @container screen (max-width: 640px) {
+    .sec { padding-block: 64px 72px; }
+    .sec__title { font-size: 24px; line-height: 31px; }
+    .sec__intro { font-size: 15px; line-height: 24px; }
+    .example__go { margin-left: 0; }
+  }
+</style>

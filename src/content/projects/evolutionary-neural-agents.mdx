@@ -1,0 +1,22 @@
+---
+title: "Agents that learn to steer by evolution"
+summary: "A population of small neural networks learns to reach a target and avoid obstacles, with no gradients: only selection, crossover and mutation."
+repo: jovmarko11/EvolutionaryNeuralAgents
+category: ai
+stack: [C++20, SFML 3, CMake]
+status: in-progress
+period: { start: "2026-09" }
+context: "Personal project"
+spec: { label: Population, value: "200 agents" }
+plot: { x: 0.85, y: 0.55 }
+hue: lime
+featured: true
+---
+
+## Idea
+
+Each agent is a small neural network that sees the world through seven ray sensors and outputs two
+numbers: how much to turn and how fast to move. Nobody trains it with backpropagation. Every generation
+the best agents are kept, crossed over and mutated, and the population slowly learns to reach the target.
+
+<Note title="// WIP">The full write-up is on its way: the genetic algorithm, the fitness function and what the agents learned to do that I didn't expect.</Note>

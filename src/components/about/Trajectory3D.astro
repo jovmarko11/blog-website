@@ -1,0 +1,139 @@
+---
+/**
+ * Trajectory3D — About header illustration.
+ * My path through three axes (code · math & physics · time), in 3D.
+ * The camera sways slowly; a translucent "time plane" sweeps forward and lights up
+ * each step as it passes, then the loop starts again.
+ * Build time: a static frame (also what reduced-motion / no-JS visitors see).
+ * Browser: the same geometry (lib/trajectory-scene.ts) re-rendered every frame.
+ */
+import { scene, VIEW, BASE_YAW } from "../../lib/trajectory-scene";
+
+const s = scene(BASE_YAW, 1.05);
+const f = (n: number) => n.toFixed(1);
+---
+
+<figure class="t3" aria-label="My path in three dimensions: code, math and physics, and time. From physics at Petnica, through software engineering and algorithms, to theory, heading towards AI research.">
+  <svg viewBox={`0 0 ${VIEW.w} ${VIEW.h}`} role="img" data-t3>
+    <g class="t3__grid">{s.grid.map((l) => <line x1={f(l[0])} y1={f(l[1])} x2={f(l[2])} y2={f(l[3])} />)}</g>
+    <g class="t3__axes">
+      {Object.entries(s.axes).map(([k, l]) => <line data-axis={k} x1={f(l[0])} y1={f(l[1])} x2={f(l[2])} y2={f(l[3])} />)}
+    </g>
+    <g class="t3__axis-labels">
+      <text data-alabel="code" x={f(s.axisLabels.code.x)} y={f(s.axisLabels.code.y)}>code →</text>
+      <text data-alabel="theory" x={f(s.axisLabels.theory.x)} y={f(s.axisLabels.theory.y)}>math &amp; physics ↑</text>
+      <text data-alabel="time" x={f(s.axisLabels.time.x)} y={f(s.axisLabels.time.y)}>time →</text>
+    </g>
+    <g class="t3__ticks">{s.ticks.map((k, i) => <text data-tick={i} class:list={{ on: k.on }} x={f(k.x)} y={f(k.y)} text-anchor="middle">{k.label}</text>)}</g>
+    <polygon class="t3__plane" data-plane points={s.plane} style="opacity:0" />
+    <g class="t3__drops">{s.pts.map((p, i) => <line data-drop={i} class:list={{ on: p.on }} x1={f(p.x)} y1={f(p.y)} x2={f(p.fx)} y2={f(p.fy)} />)}</g>
+    <g class="t3__shadows">{s.pts.map((p, i) => <circle data-shadow={i} cx={f(p.fx)} cy={f(p.fy)} r="1.8" />)}</g>
+    <polyline class="t3__path" data-path points={s.path} />
+    <line class="t3__next" data-next x1={f(s.nextSeg[0])} y1={f(s.nextSeg[1])} x2={f(s.nextSeg[2])} y2={f(s.nextSeg[3])} />
+    <g class="t3__pts">
+      {s.pts.map((p, i) => (
+        <g data-pt={i} class:list={["t3__pt", { on: p.on, now: p.now }]} transform={`translate(${f(p.x)} ${f(p.y)})`}>
+          {p.now && <circle class="t3__pulse" r="6" />}
+          <circle r={p.now ? 5 : 3.5} />
+          <text x="9" y={p.now ? 17 : 4}>{p.label}</text>
+        </g>
+      ))}
+      <g data-nextpt class="t3__pt t3__pt--next" transform={`translate(${f(s.nextPt.x)} ${f(s.nextPt.y)})`}>
+        <circle r="3.5" />
+        <text x="0" y="-11" text-anchor="middle">{s.nextLabel}</text>
+      </g>
+    </g>
+  </svg>
+</figure>
+
+<script>
+  import { scene, BASE_YAW } from "../../lib/trajectory-scene";
+
+  const svg = document.querySelector<SVGSVGElement>("[data-t3]");
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (svg && !reduced) {
+    const $ = <T extends Element>(sel: string) => svg.querySelector<T>(sel)!;
+    const $$ = <T extends Element>(sel: string) => [...svg.querySelectorAll<T>(sel)];
+    const grid = $$<SVGLineElement>(".t3__grid line");
+    const axes = $$<SVGLineElement>("[data-axis]");
+    const alabels = $$<SVGTextElement>("[data-alabel]");
+    const ticks = $$<SVGTextElement>("[data-tick]");
+    const drops = $$<SVGLineElement>("[data-drop]");
+    const shadows = $$<SVGCircleElement>("[data-shadow]");
+    const pts = $$<SVGGElement>("[data-pt]");
+    const plane = $<SVGPolygonElement>("[data-plane]");
+    const path = $<SVGPolylineElement>("[data-path]");
+    const next = $<SVGLineElement>("[data-next]");
+    const nextPt = $<SVGGElement>("[data-nextpt]");
+    const setLine = (el: SVGLineElement, l: number[]) => {
+      el.setAttribute("x1", l[0].toFixed(1)); el.setAttribute("y1", l[1].toFixed(1));
+      el.setAttribute("x2", l[2].toFixed(1)); el.setAttribute("y2", l[3].toFixed(1));
+    };
+    const setXY = (el: SVGTextElement, p: { x: number; y: number }) => { el.setAttribute("x", p.x.toFixed(1)); el.setAttribute("y", p.y.toFixed(1)); };
+
+    const SWAY = 26, CYCLE = 11, SWEEP = 7.5; // seconds
+    let start = performance.now(), visible = true, raf = 0;
+
+    const frame = (now: number) => {
+      const t = (now - start) / 1000;
+      const yaw = BASE_YAW + 0.26 * Math.sin((2 * Math.PI * t) / SWAY);
+      const phase = t % CYCLE;
+      const sweep = Math.min(1.05, (phase / SWEEP) * 1.05);
+      const s = scene(yaw, sweep);
+
+      s.grid.forEach((l, i) => setLine(grid[i], l));
+      (["code", "theory", "time"] as const).forEach((k, i) => { setLine(axes[i], s.axes[k]); setXY(alabels[i], s.axisLabels[k]); });
+      s.ticks.forEach((k, i) => { setXY(ticks[i], k); ticks[i].classList.toggle("on", k.on); });
+      s.pts.forEach((p, i) => {
+        setLine(drops[i], [p.x, p.y, p.fx, p.fy]);
+        drops[i].classList.toggle("on", p.on);
+        shadows[i].setAttribute("cx", p.fx.toFixed(1)); shadows[i].setAttribute("cy", p.fy.toFixed(1));
+        pts[i].setAttribute("transform", `translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})`);
+        pts[i].classList.toggle("on", p.on);
+      });
+      path.setAttribute("points", s.path);
+      setLine(next, s.nextSeg);
+      next.style.opacity = s.nextShown ? "1" : "0";
+      nextPt.setAttribute("transform", `translate(${s.nextPt.x.toFixed(1)} ${s.nextPt.y.toFixed(1)})`);
+      nextPt.style.opacity = s.nextShown ? "1" : "0";
+      plane.setAttribute("points", s.plane);
+      plane.style.opacity = s.planeOn ? "1" : "0";
+
+      if (visible) raf = requestAnimationFrame(frame);
+    };
+
+    // only animate while on screen
+    new IntersectionObserver(([e]) => {
+      visible = e.isIntersecting;
+      if (visible) { cancelAnimationFrame(raf); raf = requestAnimationFrame(frame); }
+    }).observe(svg);
+    start = performance.now();
+    raf = requestAnimationFrame(frame);
+  }
+</script>
+
+<style>
+  .t3 { margin: 0; }
+  svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .t3__grid line { stroke: var(--line-strong); stroke-width: 1; opacity: 0.7; }
+  .t3__axes line { stroke: var(--control-border); stroke-width: 1.2; }
+  .t3__axis-labels text, .t3__ticks text { fill: var(--ink-faint); font-family: var(--font-mono); font-size: 10.5px; }
+  .t3__ticks text { font-size: 10px; transition: fill 0.3s; }
+  .t3__ticks text.on { fill: var(--ink-muted); }
+  .t3__plane { fill: color-mix(in srgb, var(--accent) 9%, transparent); stroke: color-mix(in srgb, var(--accent) 45%, transparent); stroke-width: 1; stroke-dasharray: 3 4; transition: opacity 0.4s; }
+  .t3__drops line { stroke: var(--ink-faint); stroke-width: 1; stroke-dasharray: 2 3; opacity: 0.25; transition: opacity 0.3s; }
+  .t3__drops line.on { opacity: 0.7; }
+  .t3__shadows circle { fill: var(--ink-faint); opacity: 0.5; }
+  .t3__path { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .t3__next { stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 4 5; transition: opacity 0.4s; }
+  .t3__pt { opacity: 0.28; transition: opacity 0.35s; }
+  .t3__pt.on { opacity: 1; }
+  .t3__pt circle:not(.t3__pulse) { fill: var(--ink-muted); }
+  .t3__pt text { fill: var(--ink-muted); font-family: var(--font-mono); font-size: 11px; paint-order: stroke; stroke: var(--bg); stroke-width: 3px; }
+  .t3__pt.now circle:not(.t3__pulse) { fill: var(--accent); }
+  .t3__pt.now text { fill: var(--accent); font-weight: 700; }
+  .t3__pt--next { transition: opacity 0.4s; }
+  .t3__pt--next circle { fill: none; stroke: var(--accent); stroke-dasharray: 2 2; }
+  .t3__pulse { fill: none; stroke: var(--accent); stroke-width: 1.5; transform-box: fill-box; transform-origin: center; animation: pulse 2.8s ease-out infinite; }
+  @keyframes pulse { 0% { transform: scale(1); opacity: 0.8; } 100% { transform: scale(3); opacity: 0; } }
+</style>

@@ -119,3 +119,9 @@ code, kbd, pre, samp { font-family: var(--font-mono); font-variant-ligatures: no
   .js .hl { background-size: 0% 2px; transition: background-size 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) 0.35s; }
   .js .is-in .hl, .js .hl.is-in { background-size: 100% 2px; }
 }
+
+/* Section labels inside a revealed block "type" themselves in. */
+@media (prefers-reduced-motion: no-preference) {
+  .js [data-reveal] .t-label { clip-path: inset(0 100% 0 0); transition: clip-path 0.7s steps(22) 0.1s; }
+  .js [data-reveal].is-in .t-label { clip-path: inset(0 0 0 0); }
+}

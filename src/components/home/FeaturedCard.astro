@@ -1,0 +1,106 @@
+---
+/**
+ * FeaturedCard — a featured project on the landing page.
+ * Carries the project's own color (hue) and a mini copy of the hero map
+ * showing where the project sits: the same coordinates, at thumbnail size.
+ */
+import type { CollectionEntry } from "astro:content";
+import Tag from "../ui/Tag.astro";
+
+interface Props {
+  project: CollectionEntry<"projects">;
+  index: number;
+}
+const { project, index } = Astro.props;
+const p = project.data;
+const origin = p.course ? `${p.course.code} @ ETF` : (p.context ?? "personal");
+
+// mini map: 64×44, plot area 8..60 × 4..36
+const mx = 8 + p.plot.x * 52;
+const my = 36 - p.plot.y * 32;
+---
+
+<a class="fc" href={`/projects/${project.id}/`} style={`--c: var(--hue-${p.hue}); --c-soft: var(--hue-${p.hue}-soft)`}>
+  <span class="fc__top">
+    <span class="fc__n">{String(index).padStart(2, "0")}</span>
+    <span class="fc__where">{p.category} · {origin}</span>
+    <Tag status={p.status} />
+  </span>
+
+  <span class="fc__title">{p.title}</span>
+  <span class="fc__summary">{p.summary}</span>
+
+  <span class="fc__bottom">
+    <span class="fc__stack">{p.stack.slice(0, 4).map((t) => <Tag>{t}</Tag>)}</span>
+    <span class="fc__mini" aria-hidden="true">
+      <svg viewBox="0 0 64 44" width="64" height="44">
+        <path class="fc__axis" d="M8 2 V36 H62" />
+        <line class="fc__cross" x1={mx} y1={my} x2={mx} y2="36" />
+        <line class="fc__cross" x1="8" y1={my} x2={mx} y2={my} />
+        <circle class="fc__dot" cx={mx} cy={my} r="3" />
+      </svg>
+      <span class="fc__xy">({p.plot.x.toFixed(2)}, {p.plot.y.toFixed(2)})</span>
+    </span>
+  </span>
+
+  <span class="fc__go">read →</span>
+</a>
+
+<style>
+  .fc {
+    position: relative;
+    display: flex; flex-direction: column; gap: 10px;
+    height: 100%;
+    padding: 20px 22px 18px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-m);
+    color: inherit;
+    overflow: hidden;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  /* the project's color: a short line that runs the full width on hover */
+  .fc::before {
+    content: ""; position: absolute; inset: 0 0 auto 0; height: 2px;
+    background: var(--c); transform: scaleX(0.14); transform-origin: left;
+    transition: transform 0.5s cubic-bezier(0.2, 0.7, 0.2, 1);
+  }
+  .fc__top { display: flex; align-items: center; gap: 12px; font-family: var(--font-mono); font-size: 12px; color: var(--ink-faint); }
+  .fc__n { color: var(--c); font-weight: 700; }
+  .fc__where { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fc__top :global(.tag) { padding: 2px 8px; }
+
+  .fc__title { font-size: 22px; line-height: 28px; font-weight: 700; letter-spacing: -0.015em; color: var(--ink); margin-top: 4px; }
+  .fc__summary { font-size: 15px; line-height: 23px; color: var(--ink-muted); }
+
+  .fc__bottom { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-top: auto; padding-top: 8px; }
+  .fc__stack { display: flex; flex-wrap: wrap; gap: 6px; }
+  .fc__mini { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex: none; }
+  .fc__axis { fill: none; stroke: var(--line-strong); }
+  .fc__cross { stroke: var(--c); stroke-dasharray: 2 2; opacity: 0.35; transition: opacity 0.2s; }
+  .fc__dot { fill: var(--c); transform-box: fill-box; transform-origin: center; }
+  .fc__xy { font-family: var(--font-mono); font-size: 10px; color: var(--ink-faint); }
+
+  .fc__go { position: absolute; right: 22px; top: 19px; font-family: var(--font-mono); font-size: 12px; color: var(--accent); opacity: 0; transform: translateX(-6px); transition: opacity 0.2s, transform 0.2s; }
+
+  .fc:hover { border-color: color-mix(in srgb, var(--c) 55%, var(--line)); background: var(--surface-raised); }
+  .fc:hover::before { transform: scaleX(1); }
+  .fc:hover .fc__cross { opacity: 1; }
+  .fc:hover .fc__dot { animation: dot 1.2s ease-in-out infinite; }
+  .fc:hover .fc__top :global(.tag) { opacity: 0; }
+  .fc:hover .fc__go { opacity: 1; transform: none; }
+  .fc__top :global(.tag) { transition: opacity 0.2s; }
+  @keyframes dot { 50% { transform: scale(1.5); } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .fc::before, .fc__go { transition: none; }
+    .fc:hover .fc__dot { animation: none; }
+  }
+  @container screen (max-width: 640px) {
+    .fc { padding: 16px 16px 14px; }
+    .fc__title { font-size: 19px; line-height: 25px; }
+    .fc__summary { font-size: 14px; line-height: 21px; }
+    .fc__go { display: none; }
+    .fc:hover .fc__top :global(.tag) { opacity: 1; }
+  }
+</style>

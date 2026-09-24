@@ -77,14 +77,46 @@ export const log: LogEntry[] = [
 ];
 
 export const earlier = [
-  { year: "2024", where: "Petnica · Computational finance", title: "VIX as a predictor of higher moments in financial returns", text: "A maximum-likelihood model fitted to 34 years of S&P 500 and VIX data, written in Python." },
-  { year: "2024", where: "Petnica · Physics", title: "Simulating fluorescence correlation spectroscopy", text: "Monte Carlo diffusion of molecules, then diffusion coefficients recovered from the autocorrelation curve." },
-  { year: "2024", where: "Data Science Camp", title: "Predicting used-car prices", text: "Linear regression, random forests and XGBoost, with feature engineering and cross-validation." },
+  { year: "2024", where: "Petnica · Computational finance", title: "VIX as a predictor of higher moments in financial returns", text: "A maximum-likelihood model fitted to 34 years of S&P 500 and VIX data, written in Python.", tags: ["Python", "MLE", "time series"] },
+  { year: "2024", where: "Petnica · Physics", title: "Simulating fluorescence correlation spectroscopy", text: "Monte Carlo diffusion of molecules, then diffusion coefficients recovered from the autocorrelation curve.", tags: ["Python", "Monte Carlo", "curve fitting"] },
+  { year: "2024", where: "Data Science Camp", title: "Predicting used-car prices", text: "Linear regression, random forests and XGBoost, with feature engineering and cross-validation.", tags: ["scikit-learn", "XGBoost", "regression"] },
 ];
 
 export const toolbox: { key: string; items: string[]; solid?: boolean }[] = [
-  { key: "languages", items: ["C++", "Python", "Java"] },
+  { key: "languages", items: ["C++", "C", "Python", "Java", "SQL", "MATLAB"] },
   { key: "scientific", items: ["NumPy", "Pandas", "SciPy", "scikit-learn", "Matplotlib"] },
-  { key: "ides", items: ["CLion", "PyCharm", "IntelliJ IDEA", "DataGrip", "DataSpell"], solid: true },
+  { key: "methods", items: ["Monte Carlo simulation", "Maximum likelihood", "Object-oriented design", "Algorithm design"] },
   { key: "tools", items: ["Git", "CMake", "Jupyter", "Astro"] },
+];
+
+/** The opening sentence, split so it can be revealed word by word. `hl` = underlined phrase. */
+export const lead: { t: string; hl?: boolean }[] = [
+  { t: "I'm Marko. I study Software Engineering in Belgrade, and I like building things" },
+  { t: "from first principles", hl: true },
+  { t: "(shells, renderers, neural networks) until I understand why they work." },
+];
+
+/** A few true numbers from the story. `n` counts up; `text` is shown as-is when there is no number. */
+export const numbers: { n?: number; text?: string; suffix?: string; label: string }[] = [
+  { n: 5, label: "sciences at my first Petnica seminar" },
+  { n: 34, suffix: " yrs", label: "of market data in my first model" },
+  { n: 5, label: "layers in my command-line parser" },
+  { text: "∞", label: "things I still want to understand" },
+];
+
+export const quote = "The interesting problems live between fields.";
+
+/** Subjects the contact terminal cycles through. */
+export const mailSubjects = ["a parser", "a simulation", "a paper you liked", "a problem worth building from scratch"];
+
+/** Points of the header trajectory: code (0–1), math & physics (0–1), time (0–1, chronological). */
+export const trajectory = [
+  { label: "petnica", code: 0.08, theory: 0.52, time: 0.0 },
+  { label: "first sim", code: 0.22, theory: 0.4, time: 0.14 },
+  { label: "physics", code: 0.18, theory: 0.82, time: 0.3 },
+  { label: "etf", code: 0.45, theory: 0.3, time: 0.52 },
+  { label: "algorithms", code: 0.6, theory: 0.58, time: 0.66 },
+  { label: "theory", code: 0.66, theory: 0.86, time: 0.8 },
+  { label: "now", code: 0.8, theory: 0.72, time: 0.9, now: true },
+  { label: "next: AI research", code: 0.95, theory: 0.95, time: 1.0, next: true },
 ];

@@ -1,0 +1,51 @@
+---
+/**
+ * FeaturedProjects — "01 — Featured": the featured projects in a two-column grid.
+ */
+import type { CollectionEntry } from "astro:content";
+import Label from "../ui/Label.astro";
+import TerminalHeading from "../ui/TerminalHeading.astro";
+import FeaturedCard from "./FeaturedCard.astro";
+
+interface Props {
+  projects: CollectionEntry<"projects">[];
+  total: number;
+}
+const { projects, total } = Astro.props;
+---
+
+<section class="wrap sec" id="featured">
+  <div class="sec__head" data-reveal>
+    <div>
+      <Label index="01 —">Featured</Label>
+      <TerminalHeading cmd="ls" arg="~/projects --featured">Selected work</TerminalHeading>
+    </div>
+    <a class="sec__all" href="/projects/">→ all projects <span>({total})</span></a>
+  </div>
+
+  <ul class="grid" role="list">
+    {projects.map((p, i) => (
+      <li data-reveal style={`--d:${(i % 2) * 110 + Math.floor(i / 2) * 60}ms`}>
+        <FeaturedCard project={p} index={i + 1} />
+      </li>
+    ))}
+  </ul>
+</section>
+
+<style>
+  .sec { padding-block: 88px 0; }
+  .sec__head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
+  .sec__head :global(.th) { margin-top: 10px; }
+  .sec__all { font-family: var(--font-mono); font-size: 13px; color: var(--accent); white-space: nowrap; padding-bottom: 6px; transition: transform 0.15s; }
+  .sec__all span { color: var(--ink-faint); }
+  .sec__all:hover { transform: translateX(4px); }
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; list-style: none; margin: 0; padding: 0; }
+
+  @container screen (max-width: 900px) {
+    .grid { grid-template-columns: minmax(0, 1fr); }
+  }
+  @container screen (max-width: 640px) {
+    .sec { padding-block: 56px 0; }
+    .sec__head { flex-direction: column; align-items: flex-start; gap: 12px; }
+  }
+</style>

@@ -1,0 +1,133 @@
+---
+/**
+ * ContactCTA — the "say hi" block at the end of About.
+ * Left: invitation + actions (write, copy email, links). Right: a mail "compose" terminal
+ * whose subject line types itself through a few reasons to write.
+ * A thin light travels around the card's border. All motion stops for reduced motion.
+ */
+import Label from "../ui/Label.astro";
+import { site } from "../../config/site";
+import { mailSubjects } from "../../data/about";
+
+const email = site.links.email.replace("mailto:", "");
+const links = [
+  { label: "github", href: site.links.github },
+  { label: "linkedin", href: site.links.linkedin },
+  { label: "cv.pdf", href: site.links.cv },
+].filter((l) => l.href);
+---
+
+<section class="cta" data-reveal>
+  <div class="cta__inner">
+    <div class="cta__text">
+      <Label index="06 —">Say hi</Label>
+      <h2 class="cta__title">Got something worth building from&nbsp;scratch?</h2>
+      <p class="cta__p">I'm always up for a conversation about a parser, a simulation or a paper you liked. Tell me what you're working on; the stranger the problem, the better.</p>
+      <div class="cta__actions">
+        <a class="cta__btn cta__btn--primary" href={site.links.email}>→ write to me</a>
+        <button class="cta__btn" type="button" data-copy={email}><span data-copy-label>copy email</span></button>
+      </div>
+      <p class="cta__links">{links.map((l) => <a href={l.href} rel="noopener">{l.label} ↗</a>)}</p>
+    </div>
+
+    <div class="cta__term" aria-hidden="true">
+      <div class="cta__bar"><span></span><span></span><span></span><b>new message</b></div>
+      <div class="cta__body">
+        <p><span class="cta__k">$</span> mail {site.handle}</p>
+        <p><span class="cta__f">To:</span> {email}</p>
+        <p><span class="cta__f">Subject:</span> let's talk about <span class="cta__subject" data-subjects={JSON.stringify(mailSubjects)}>{mailSubjects[0]}</span><span class="cta__cursor"></span></p>
+        <p class="cta__faint">Hi Marko,</p>
+        <p class="cta__faint cta__line"></p>
+        <p class="cta__faint cta__line cta__line--short"></p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  // copy email
+  document.querySelectorAll<HTMLButtonElement>("[data-copy]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const label = btn.querySelector<HTMLElement>("[data-copy-label]")!;
+      try { await navigator.clipboard.writeText(btn.dataset.copy!); label.textContent = "copied ✓"; }
+      catch { label.textContent = btn.dataset.copy!; }
+      setTimeout(() => (label.textContent = "copy email"), 2000);
+    });
+  });
+
+  // subject line types itself through the reasons to write
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  document.querySelectorAll<HTMLElement>("[data-subjects]").forEach((el) => {
+    if (reduced) return;
+    const subjects: string[] = JSON.parse(el.dataset.subjects!);
+    let i = 0;
+    const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    (async function loop() {
+      while (true) {
+        await wait(2200);
+        for (let n = el.textContent!.length; n >= 0; n--) { el.textContent = subjects[i].slice(0, n); await wait(28); }
+        i = (i + 1) % subjects.length;
+        for (let n = 1; n <= subjects[i].length; n++) { el.textContent = subjects[i].slice(0, n); await wait(55); }
+      }
+    })();
+  });
+</script>
+
+<style>
+  @property --a { syntax: "<angle>"; inherits: false; initial-value: 0deg; }
+
+  .cta { position: relative; margin-top: 88px; border-radius: var(--radius-m); padding: 1px; background: var(--line-strong); isolation: isolate; }
+  /* a short light that travels around the border */
+  .cta::before {
+    content: ""; position: absolute; inset: 0; border-radius: inherit; z-index: -1;
+    background: conic-gradient(from var(--a), transparent 0deg 300deg, var(--accent) 340deg, transparent 360deg);
+    animation: orbit 9s linear infinite;
+  }
+  @keyframes orbit { to { --a: 360deg; } }
+  .cta__inner {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 400px); gap: 40px; align-items: center;
+    padding: 40px; border-radius: calc(var(--radius-m) - 1px);
+    background:
+      radial-gradient(600px 240px at 100% 0%, color-mix(in srgb, var(--accent) 7%, transparent), transparent 70%),
+      var(--surface);
+  }
+  .cta__title { margin-top: 14px; font-size: 34px; line-height: 40px; font-weight: 800; letter-spacing: -0.03em; }
+  .cta__p { margin-top: 14px; font-size: 17px; line-height: 28px; color: var(--ink-muted); max-width: 52ch; }
+  .cta__actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
+  .cta__btn {
+    display: inline-flex; align-items: center; padding: 11px 18px; border-radius: var(--radius-s);
+    font-family: var(--font-mono); font-size: 13px; font-weight: 600;
+    border: 1px solid var(--control-border); color: var(--ink); background: transparent;
+    transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.15s;
+  }
+  .cta__btn:hover { border-color: var(--ink-muted); background: var(--surface-raised); color: var(--ink); }
+  .cta__btn--primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .cta__btn--primary:hover { background: var(--accent-strong); border-color: var(--accent-strong); color: var(--on-accent); transform: translateY(-1px); }
+  .cta__links { display: flex; gap: 18px; margin-top: 18px; font-family: var(--font-mono); font-size: 13px; }
+  .cta__links a { color: var(--ink-faint); }
+  .cta__links a:hover { color: var(--accent); }
+
+  .cta__term { background: var(--surface-sunken); border: 1px solid var(--line); border-radius: var(--radius-m); overflow: hidden; font-family: var(--font-mono); font-size: 13px; line-height: 22px; color: var(--code-ink); box-shadow: 0 20px 50px -24px rgba(0, 0, 0, 0.6); transform: rotate(0.6deg); }
+  .cta__bar { display: flex; align-items: center; gap: 6px; padding: 8px 12px; border-bottom: 1px solid var(--code-line); }
+  .cta__bar span { width: 8px; height: 8px; border-radius: 50%; background: var(--code-line); }
+  .cta__bar b { margin-left: auto; font-weight: 400; font-size: 11px; color: var(--code-muted); }
+  .cta__body { padding: 14px 16px 18px; }
+  .cta__k { color: var(--syn-keyword); }
+  .cta__f { color: var(--code-muted); }
+  .cta__subject { color: var(--syn-string); }
+  .cta__cursor { display: inline-block; width: 0.55em; height: 1.05em; margin-left: 1px; vertical-align: -0.18em; background: var(--syn-keyword); animation: blink 1.1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .cta__faint { color: var(--code-muted); margin-top: 12px; }
+  .cta__line { height: 8px; margin-top: 12px; border-radius: 4px; background: var(--code-line); }
+  .cta__line--short { width: 60%; margin-top: 8px; }
+
+  @media (prefers-reduced-motion: reduce) { .cta::before { animation: none; } }
+  @container screen (max-width: 900px) {
+    .cta__inner { grid-template-columns: 1fr; }
+    .cta__term { transform: none; }
+  }
+  @container screen (max-width: 640px) {
+    .cta__inner { padding: 24px 20px; }
+    .cta__title { font-size: 26px; line-height: 32px; }
+  }
+</style>

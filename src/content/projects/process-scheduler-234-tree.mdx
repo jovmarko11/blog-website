@@ -1,0 +1,22 @@
+---
+title: "A process scheduler on a 2‑3‑4 tree"
+summary: "A fair process scheduler whose run queue is a hand-written 2-3-4 tree, ordered by waiting and execution time, and its red-black tree equivalent."
+repo: jovmarko11/2-3-4-and-RB-Tree-Process-Scheduler-ASP-II
+category: math
+stack: [C++, CMake]
+status: shipped
+period: { start: "2025-12", end: "2026-01" }
+course: { code: ASP2, name: "Algorithms and Data Structures 2", year: 2026 }
+spec: { label: Structure, value: "2-3-4 ↔ RB tree" }
+plot: { x: 0.35, y: 0.65 }
+hue: violet
+featured: true
+---
+
+## Idea
+
+A scheduler has to answer one question over and over: which process runs next? Here the answer lives in
+a balanced search tree. Processes are keyed by how long they have waited and how long they have run,
+so the next one to run is always at the edge of the tree, and every insert and removal stays logarithmic.
+
+<Note title="// WIP">The full write-up is on its way: node splits, the mapping between 2-3-4 and red-black trees, and the simulation loop.</Note>
