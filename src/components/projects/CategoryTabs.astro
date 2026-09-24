@@ -1,0 +1,71 @@
+---
+/**
+ * CategoryTabs — the one filter on /projects: "all 12 · systems 4 · ai 3 …".
+ * Works without JS (every card stays visible). With JS it hides cards of other
+ * categories, hides empty year groups and keeps the choice in the URL (?category=ai).
+ */
+import { CATEGORIES } from "../../content/schema";
+
+interface Props {
+  /** category → number of projects; categories with 0 are not shown. */
+  counts: Record<string, number>;
+  total: number;
+}
+const { counts, total } = Astro.props;
+const tabs = [["all", total] as const, ...CATEGORIES.filter((c) => counts[c]).map((c) => [c, counts[c]] as const)];
+---
+
+<div class="tabs-row">
+  <div class="tabs" role="tablist" aria-label="Filter by category" data-filter-tabs>
+    {tabs.map(([name, n], i) => (
+      <button class:list={["tab", { "is-on": i === 0 }]} type="button" role="tab" aria-selected={i === 0 ? "true" : "false"} data-category={name}>
+        {name}<span>{n}</span>
+      </button>
+    ))}
+  </div>
+  <div class="legend" aria-hidden="true">
+    <span><i class="dot dot--ok"></i>shipped</span>
+    <span><i class="dot dot--wip"></i>in progress</span>
+    <span><i class="dot dot--lost"></i>lost</span>
+  </div>
+</div>
+
+<script>
+  const tabs = document.querySelectorAll<HTMLButtonElement>("[data-filter-tabs] [data-category]");
+  const cards = document.querySelectorAll<HTMLElement>("[data-card]");
+  const groups = document.querySelectorAll<HTMLElement>("[data-year-group]");
+
+  function apply(category: string) {
+    tabs.forEach((t) => {
+      const on = t.dataset.category === category;
+      t.classList.toggle("is-on", on);
+      t.setAttribute("aria-selected", String(on));
+    });
+    cards.forEach((c) => (c.hidden = category !== "all" && c.dataset.category !== category));
+    groups.forEach((g) => (g.hidden = !g.querySelector("[data-card]:not([hidden])")));
+    const url = new URL(location.href);
+    category === "all" ? url.searchParams.delete("category") : url.searchParams.set("category", category);
+    history.replaceState(null, "", url);
+  }
+
+  tabs.forEach((t) => t.addEventListener("click", () => apply(t.dataset.category!)));
+  const initial = new URL(location.href).searchParams.get("category");
+  if (initial && [...tabs].some((t) => t.dataset.category === initial)) apply(initial);
+</script>
+
+<style>
+  .tabs-row { display: flex; align-items: center; gap: 16px; border-bottom: 1px solid var(--line-strong); font-family: var(--font-mono); font-size: 13px; }
+  .tabs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; }
+  .tab { padding: 10px 14px; color: var(--ink-muted); border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
+  .tab span { margin-left: 6px; color: var(--ink-faint); font-size: 11px; }
+  .tab:hover { color: var(--ink); }
+  .tab.is-on { color: var(--ink); border-bottom-color: var(--accent); }
+  .tab.is-on span { color: var(--accent); }
+  .legend { margin-left: auto; display: flex; gap: 14px; font-size: 11px; color: var(--ink-faint); white-space: nowrap; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; }
+  .dot--ok { background: var(--success); }
+  .dot--wip { border: 2px solid var(--warning); }
+  .dot--lost { border: 1.5px dashed var(--danger); }
+  @container screen (max-width: 640px) { .legend { display: none; } }
+</style>

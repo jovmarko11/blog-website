@@ -1,0 +1,85 @@
+---
+/**
+ * ProjectCard — a framed card for one project (used on /projects).
+ *   bar:    index · ~/projects/<slug> · status
+ *   body:   title · summary · STACK tags
+ *   footer: category · course | context | personal · period · read →
+ */
+import type { CollectionEntry } from "astro:content";
+import Tag from "../ui/Tag.astro";
+import { formatPeriod } from "../../lib/format";
+
+interface Props {
+  project: CollectionEntry<"projects">;
+  index: number;
+}
+const { project, index } = Astro.props;
+const p = project.data;
+const origin = p.course ? p.course.code : (p.context ?? "personal");
+---
+
+<a class="card" href={`/projects/${project.id}/`} data-card data-category={p.category}>
+  <span class="card__bar">
+    <span class="card__n">{String(index).padStart(2, "0")}</span>
+    <span class="card__path">~/projects/<b>{project.id}</b></span>
+    <span class="card__status"><Tag status={p.status} /></span>
+  </span>
+
+  <span class="card__body">
+    <span class="card__title">{p.title}</span>
+    <span class="card__summary">{p.summary}</span>
+    <span class="card__stack">
+      <span class="card__key">stack</span>
+      {p.stack.map((t) => <Tag>{t}</Tag>)}
+    </span>
+  </span>
+
+  <span class="card__foot">
+    <span class="card__cat">{p.category}</span><i>·</i>
+    {p.course ? <Tag>{origin}</Tag> : <span>{origin}</span>}<i>·</i>
+    <span>{formatPeriod(p.period, p.status)}</span>
+    <span class="card__go">read →</span>
+  </span>
+</a>
+
+<style>
+  .card {
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-m);
+    overflow: hidden;
+    color: inherit;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .card__bar { display: flex; align-items: stretch; border-bottom: 1px solid var(--line); background: var(--bg); font-family: var(--font-mono); font-size: 12px; }
+  .card__n { display: grid; place-items: center; min-width: 44px; padding: 0 10px; border-right: 1px solid var(--line); color: var(--ink-faint); font-weight: 600; transition: background 0.15s, color 0.15s; }
+  .card__path { flex: 1; min-width: 0; padding: 9px 12px; color: var(--ink-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card__path b { color: var(--ink-muted); font-weight: 500; }
+  .card__status { align-self: center; margin-right: 10px; }
+  .card__status :global(.tag) { padding: 2px 8px; }
+
+  .card__body { display: flex; flex-direction: column; gap: 8px; padding: 16px 18px; flex: 1; }
+  .card__title { font-size: 19px; line-height: 26px; font-weight: 700; letter-spacing: -0.01em; color: var(--ink); transition: color 0.15s; }
+  .card__summary { font-size: 15px; line-height: 23px; color: var(--ink-muted); }
+  .card__stack { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: auto; padding-top: 6px; }
+  .card__key { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-faint); margin-right: 4px; }
+
+  .card__foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 18px; border-top: 1px dashed var(--line-strong); font-family: var(--font-mono); font-size: 12px; color: var(--ink-faint); }
+  .card__foot i { font-style: normal; color: var(--line-strong); }
+  .card__foot :global(.tag) { padding: 1px 7px; }
+  .card__cat { color: var(--ink-muted); }
+  .card__go { margin-left: auto; color: var(--accent); transition: transform 0.15s; }
+
+  .card[hidden] { display: none; }
+  .card:hover { border-color: var(--accent); background: var(--surface-raised); }
+  .card:hover .card__n { background: var(--accent); color: var(--on-accent); }
+  .card:hover .card__title { color: var(--accent); }
+  .card:hover .card__go { transform: translateX(4px); }
+
+  @container screen (max-width: 640px) {
+    .card__title { font-size: 17px; line-height: 24px; }
+    .card__summary { font-size: 14px; line-height: 21px; }
+  }
+</style>

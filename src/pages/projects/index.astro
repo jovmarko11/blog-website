@@ -1,0 +1,70 @@
+---
+/**
+ * /projects — every write-up as a framed card, newest first, grouped by year.
+ */
+import BaseLayout from "../../layouts/BaseLayout.astro";
+import Paper from "../../components/layout/Paper.astro";
+import TerminalHeading from "../../components/ui/TerminalHeading.astro";
+import CategoryTabs from "../../components/projects/CategoryTabs.astro";
+import ProjectCard from "../../components/projects/ProjectCard.astro";
+import { getProjects } from "../../lib/projects";
+import { site } from "../../config/site";
+
+const projects = await getProjects(); // newest first
+const total = projects.length;
+const indexOf = (i: number) => total - i; // same numbering as the project pages (oldest = 01)
+
+const counts: Record<string, number> = {};
+for (const p of projects) counts[p.data.category] = (counts[p.data.category] ?? 0) + 1;
+
+const years = new Map<string, { project: (typeof projects)[number]; index: number }[]>();
+projects.forEach((project, i) => {
+  const year = project.data.period.start.slice(0, 4);
+  if (!years.has(year)) years.set(year, []);
+  years.get(year)!.push({ project, index: indexOf(i) });
+});
+---
+
+<BaseLayout title="Projects" description="Everything I've built from scratch, newest first, each with a full write-up.">
+  <Paper as="header">
+    <TerminalHeading cmd="ls" arg="~/projects" />
+    <h1 class="t-display-l page-title">Projects</h1>
+    <p class="lede">Everything I've built from scratch, newest first. Each one has a write-up: the idea, the math, the code and the mistakes.</p>
+  </Paper>
+
+  <div class="wrap list" data-project-list>
+    <CategoryTabs counts={counts} total={total} />
+
+    {[...years].map(([year, items]) => (
+      <section class="year" data-year-group aria-label={year}>
+        <h2 class="year__head"><span class="year__y">{year}</span><span class="year__n">{items.length} {items.length === 1 ? "project" : "projects"}</span><span class="year__line" /></h2>
+        <div class="grid">
+          {items.map(({ project, index }) => <ProjectCard project={project} index={index} />)}
+        </div>
+      </section>
+    ))}
+
+    <p class="foot"><span>Not every repository gets a write-up.</span><a href={site.links.github} rel="noopener">→ github.com/jovmarko11</a></p>
+  </div>
+</BaseLayout>
+
+<style>
+  .page-title { margin-top: 6px; font-size: 56px; line-height: 60px; font-weight: 800; letter-spacing: -0.035em; }
+  .lede { margin-top: 12px; max-width: 58ch; font-size: 18px; line-height: 30px; color: var(--ink-muted); }
+
+  .list { padding-top: 28px; }
+  .year { margin-top: 28px; }
+  .year__head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 14px; font-family: var(--font-mono); font-size: 13px; font-weight: 400; }
+  .year__y { color: var(--accent); font-weight: 700; letter-spacing: 0.16em; }
+  .year__n { color: var(--ink-faint); font-size: 12px; }
+  .year__line { flex: 1; border-top: 1px dashed var(--line-strong); transform: translateY(-4px); }
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+
+  .foot { display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-top: 40px; padding-top: 24px; border-top: 1px dashed var(--line-strong); font-family: var(--font-mono); font-size: 13px; color: var(--ink-faint); }
+
+  @container screen (max-width: 640px) {
+    .page-title { font-size: 40px; line-height: 44px; }
+    .lede { font-size: 16px; line-height: 26px; }
+    .grid { grid-template-columns: 1fr; }
+  }
+</style>
