@@ -21,6 +21,8 @@ import ParseLayers from "../../components/project-art/ParseLayers.astro";
 import TickFlow from "../../components/content/TickFlow.astro";
 import FlightLegs from "../../components/content/FlightLegs.astro";
 import RunwayQueue from "../../components/content/RunwayQueue.astro";
+import ShellLab from "../../components/content/ShellLab.astro";
+import PipeRoles from "../../components/content/PipeRoles.astro";
 import { getProjects } from "../../lib/projects";
 
 export async function getStaticPaths() {
@@ -35,7 +37,7 @@ const { project, index, prev, next } = Astro.props;
 const { Content, headings } = await render(project);
 
 /** Components available inside every project .mdx without importing them. */
-const components = { h2: SectionHeading, h3: SectionTitle, CodeBlock, Note, Figure, Terminal, M, Equation, Media, Compare, DataTable, TreeLab, NodeMap, ParseLayers, TickFlow, FlightLegs, RunwayQueue };
+const components = { h2: SectionHeading, h3: SectionTitle, CodeBlock, Note, Figure, Terminal, M, Equation, Media, Compare, DataTable, TreeLab, NodeMap, ParseLayers, TickFlow, FlightLegs, RunwayQueue, ShellLab, PipeRoles };
 ---
 
 <ProjectLayout project={project} index={index} headings={headings} prev={prev} next={next}>

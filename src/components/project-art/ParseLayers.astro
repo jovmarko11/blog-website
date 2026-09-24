@@ -1,15 +1,16 @@
 ---
 /**
- * ParseLayers — looping animation of one command line travelling through the
- * CLI interpreter's layers: raw line → Tokenizer → PipelineParser → RedirectionParser
- * → CommandParser (derived parsers) → Engine.
+ * ParseLayers — looping overview of one command line travelling through the CLI interpreter:
+ * keyboard → CommandReader → Tokenizer → PipelineParser → RedirectionParser → CommandParser
+ * → StreamResolver → execute(). Each row lists the error category only that layer can throw.
  *
- *   <ParseLayers />                 full version (Architecture section)
- *   <ParseLayers variant="compact"/> first four layers, for the ProjectHeader
+ *   <ParseLayers />                  full version (Architecture section, figure 01)
+ *   <ParseLayers variant="compact"/> input + the first three parser layers, for the ProjectHeader
  *
- * Pure CSS: each row fades in on its own keyframes, the matching layer label lights up
- * in the project color. With prefers-reduced-motion everything is shown at once.
- * The data below mirrors what the real C++ code produces for this line.
+ * Pure CSS: each row fades in on its own keyframes, the matching layer label lights up in the
+ * project color. With prefers-reduced-motion everything is shown at once.
+ * The data mirrors what the real C++ program produces for this line (tokens and parse results are
+ * also computed by lib/shell-model.ts; the time 01:23:35 is from a real run).
  */
 interface Props { variant?: "full" | "compact"; }
 const { variant = "full" } = Astro.props;
@@ -31,22 +32,25 @@ const parsed = [
   { parser: "OptionCommandParser", body: 'name: "wc", option: "c"' },
 ];
 
-const rows = [
-  { layer: "input", note: "raw line" },
-  { layer: "Tokenizer", note: "lexical" },
-  { layer: "PipelineParser", note: "syntax" },
-  { layer: "RedirectionParser", note: "syntax" },
-  { layer: "CommandParser", note: "unknown cmd" },
-  { layer: "Engine", note: "semantic · system" },
-].slice(0, compact ? 4 : 6);
+const all = [
+  { id: "input", layer: "keyboard", note: "" },
+  { id: "reader", layer: "CommandReader", note: "≤ 512 chars" },
+  { id: "tok", layer: "Tokenizer", note: "Lexical" },
+  { id: "pipe", layer: "PipelineParser", note: "Syntax" },
+  { id: "redir", layer: "RedirectionParser", note: "Syntax" },
+  { id: "cmd", layer: "CommandParser", note: "UnknownCommand" },
+  { id: "res", layer: "StreamResolver", note: "StreamSemantic" },
+  { id: "exec", layer: "execute()", note: "CommandSemantic" },
+];
+const rows = compact ? all.filter((r) => ["input", "tok", "pipe", "redir"].includes(r.id)) : all;
 
 /* ---- timeline: one set of keyframes per row ---- */
 const n = rows.length;
-const cycle = compact ? 11 : 17; // seconds
-const step = compact ? 18 : 13.5; // % of the cycle between rows
-const hold = 88; // % where everything starts fading out
-const fade = 94;
-const p = variant === "compact" ? "plc" : "plf";
+const cycle = compact ? 11 : 22; // seconds
+const step = compact ? 18 : 10.5; // % of the cycle between rows
+const hold = 90; // % where everything starts fading out
+const fade = 96;
+const p = compact ? "plc" : "plf";
 let keyframes = "";
 for (let i = 0; i < n; i++) {
   const s = i * step;
@@ -57,28 +61,36 @@ for (let i = 0; i < n; i++) {
 }
 const rowStyle = (i: number) => `animation: ${p}-row-${i} ${cycle}s linear infinite`;
 const labStyle = (i: number) => `animation: ${p}-lab-${i} ${cycle}s linear infinite`;
+const chip = (t: Tok) => (t.q ? `"${t.t}"` : t.t);
 ---
 
 <div class:list={["pl", { "pl--compact": compact }]} role="img"
-  aria-label='The line time | tr -":" "." | wc -c > out.txt passes through Tokenizer, PipelineParser, RedirectionParser, CommandParser and Engine.'>
+  aria-label='The line time | tr -":" "." | wc -c > out.txt is read by CommandReader, split into 11 tokens by the Tokenizer, cut into three commands by PipelineParser, stripped of its redirection by RedirectionParser, parsed by each command’s own parser, connected by StreamResolver and PipeStreams, and finally writes 9 into out.txt.'>
   <Fragment set:html={`<style>${keyframes}</style>`} />
   {rows.map((r, i) => (
     <div class="pl__row" style={rowStyle(i)}>
       <div class="pl__label" style={labStyle(i)}>
         <span class="pl__n">{String(i).padStart(2, "0")}</span>
         <span class="pl__layer">{r.layer}</span>
-        {!compact && <span class="pl__note">{r.note}</span>}
+        {!compact && r.note && <span class="pl__note">{r.note}</span>}
       </div>
       <div class="pl__stage">
-        {i === 0 && <code class="pl__line"><span class="pl__sign">$</span> time | tr -":" "." | wc -c &gt; out.txt</code>}
-        {i === 1 && tokens.map((t) => <span class:list={["pl__tok", { "is-q": t.q, "is-op": t.op }]}>{t.q ? `"${t.t}"` : t.t}</span>)}
-        {i === 2 && segments.map((seg, k) => (
+        {r.id === "input" && <code class="pl__line"><span class="pl__sign">$</span> time | tr -":" "." | wc -c &gt; out.txt<span class="pl__key">↵</span></code>}
+        {r.id === "reader" && (
+          <>
+            <span class="pl__chars">t i m e · | · t r · - " : " …</span>
+            <span class="pl__arrow">→</span>
+            <span class="pl__card"><span class="pl__card-p">ReadResult</span><span class="pl__card-b">{'{ line: "time | tr …", truncated: false }'}</span></span>
+          </>
+        )}
+        {r.id === "tok" && tokens.map((t) => <span class:list={["pl__tok", { "is-q": t.q, "is-op": t.op }]}>{chip(t)}</span>)}
+        {r.id === "pipe" && segments.map((seg, k) => (
           <>
             {k > 0 && <span class="pl__pipe">|</span>}
-            <span class="pl__seg">{seg.map((t) => <span class:list={["pl__tok", { "is-q": t.q, "is-op": t.op }]}>{t.q ? `"${t.t}"` : t.t}</span>)}</span>
+            <span class="pl__seg">{seg.map((t) => <span class:list={["pl__tok", { "is-q": t.q, "is-op": t.op }]}>{chip(t)}</span>)}</span>
           </>
         ))}
-        {i === 3 && (
+        {r.id === "redir" && (
           <>
             <span class="pl__seg pl__seg--dim"><span class="pl__tok">time</span></span>
             <span class="pl__seg pl__seg--dim"><span class="pl__tok">tr</span><span class="pl__tok is-op">-</span><span class="pl__tok is-q">":"</span><span class="pl__tok is-q">"."</span></span>
@@ -86,15 +98,22 @@ const labStyle = (i: number) => `animation: ${p}-lab-${i} ${cycle}s linear infin
             <span class="pl__redir">out → out.txt · truncate</span>
           </>
         )}
-        {i === 4 && parsed.map((c) => (
+        {r.id === "cmd" && parsed.map((c) => (
           <span class="pl__card"><span class="pl__card-p">{c.parser}</span><span class="pl__card-b">{`{ ${c.body} }`}</span></span>
         ))}
-        {i === 5 && (
+        {r.id === "res" && (
           <>
-            <span class="pl__node">time</span><span class="pl__arrow">PipeStream →</span>
-            <span class="pl__node">tr</span><span class="pl__arrow">PipeStream →</span>
+            <span class="pl__node">time <i>– → pipe 0</i></span>
+            <span class="pl__node">tr <i>pipe 0 → pipe 1</i></span>
+            <span class="pl__node">wc <i>pipe 1 → out.txt</i></span>
+          </>
+        )}
+        {r.id === "exec" && (
+          <>
+            <span class="pl__node">time</span><span class="pl__buf">01:23:35↵</span>
+            <span class="pl__node">tr</span><span class="pl__buf">01.23.35↵</span>
             <span class="pl__node">wc</span><span class="pl__arrow">&gt;</span>
-            <span class="pl__node pl__node--out">out.txt: 9</span>
+            <span class="pl__node pl__node--out">out.txt: 9↵</span>
           </>
         )}
       </div>
@@ -108,15 +127,17 @@ const labStyle = (i: number) => `animation: ${p}-lab-${i} ${cycle}s linear infin
     padding: 16px; border: 1px solid var(--line-strong); background: var(--bg);
     font-family: var(--font-mono); font-size: 12px; line-height: 18px;
   }
-  .pl__row { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 16px; align-items: center; min-height: 40px; opacity: 0; }
+  .pl__row { display: grid; grid-template-columns: 250px minmax(0, 1fr); gap: 16px; align-items: center; min-height: 40px; opacity: 0; }
   .pl__label { display: flex; align-items: baseline; gap: 8px; padding: 6px 10px; border-radius: var(--radius-s); color: var(--ink-faint); }
   .pl__n { opacity: 0.7; }
   .pl__layer { font-weight: 700; }
-  .pl__note { margin-left: auto; font-size: 11px; opacity: 0.8; }
+  .pl__note { margin-left: auto; font-size: 10px; opacity: 0.85; }
   .pl__stage { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
 
   .pl__line { color: var(--ink); white-space: nowrap; }
   .pl__sign { color: var(--accent); }
+  .pl__key { margin-left: 6px; padding: 0 4px; border: 1px solid var(--line-strong); border-radius: var(--radius-s); color: var(--ink-muted); }
+  .pl__chars { color: var(--ink-muted); letter-spacing: 0.02em; white-space: nowrap; }
   .pl__tok { padding: 2px 7px; border: 1px solid var(--line-strong); border-radius: var(--radius-s); background: var(--surface); color: var(--ink); white-space: nowrap; }
   .pl__tok.is-op { color: var(--project); border-color: var(--project); }
   .pl__tok.is-q { background: var(--project-soft); border-style: dashed; border-color: var(--project); color: var(--ink); }
@@ -127,8 +148,10 @@ const labStyle = (i: number) => `animation: ${p}-lab-${i} ${cycle}s linear infin
   .pl__card { display: inline-flex; flex-direction: column; padding: 4px 8px; border: 1px solid var(--line-strong); border-radius: var(--radius-s); background: var(--surface); }
   .pl__card-p { color: var(--project); font-size: 11px; }
   .pl__card-b { color: var(--ink); white-space: nowrap; }
-  .pl__node { padding: 2px 8px; border: 1px solid var(--line-strong); border-radius: var(--radius-s); background: var(--surface); color: var(--ink); }
+  .pl__node { padding: 2px 8px; border: 1px solid var(--line-strong); border-radius: var(--radius-s); background: var(--surface); color: var(--ink); white-space: nowrap; }
+  .pl__node i { font-style: normal; color: var(--ink-muted); margin-left: 4px; }
   .pl__node--out { border-color: var(--project); color: var(--project); }
+  .pl__buf { padding: 2px 6px; border-radius: var(--radius-s); background: var(--surface-sunken); color: var(--code-ink); white-space: nowrap; }
   .pl__arrow { color: var(--project); }
 
   /* compact: header illustration */
@@ -136,11 +159,12 @@ const labStyle = (i: number) => `animation: ${p}-lab-${i} ${cycle}s linear infin
   .pl--compact .pl__row { grid-template-columns: 1fr; gap: 4px; min-height: 0; }
   .pl--compact .pl__label { padding: 2px 6px; align-self: start; justify-self: start; }
   .pl--compact .pl__line { font-size: 12px; }
+  .pl--compact .pl__key { display: none; }
 
   @container screen (max-width: 640px) {
     .pl__row { grid-template-columns: 1fr; gap: 4px; }
     .pl__label { justify-self: start; }
-    .pl:not(.pl--compact) .pl__stage { overflow-x: auto; flex-wrap: nowrap; }
+    .pl:not(.pl--compact) .pl__stage { overflow-x: auto; flex-wrap: nowrap; padding-bottom: 2px; }
   }
   @media (prefers-reduced-motion: reduce) {
     .pl__row, .pl__label { animation: none !important; opacity: 1; }

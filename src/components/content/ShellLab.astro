@@ -1,0 +1,351 @@
+---
+/**
+ * ShellLab — one command line through the CLI interpreter, step by step (cli-interpreter-cpp post).
+ * lib/shell-model.ts runs a TypeScript copy of the C++ tokenizer and parser at build time and records
+ * one frame per step; scripts/shell-lab.ts plays them. A frame is a full state: data-s per keyed
+ * element, plus texts and a --v variable, so CSS transitions do the animating.
+ *
+ *   <ShellLab stage="tokens" line='time | tr -":" "." | wc -c > out.txt' />   Tokenizer, character by character
+ *   <ShellLab stage="parse"  line='…' />                                    tokens → ParsedPipeline
+ *   <ShellLab stage="run"    line='…' clock="01:23:35" />                    StreamResolver + PipeStream buffers
+ *
+ * The run stage models time, echo, tr and wc only (a build error names anything else).
+ * prefers-reduced-motion: no autoplay and no transitions; frame 0 is rendered on the server.
+ */
+import { tokenScene, parseScene, runScene, RECOGNIZERS, describeRedir, type LabFrame, type Token } from "../../lib/shell-model";
+
+interface Props {
+  stage: "tokens" | "parse" | "run";
+  line: string;
+  clock?: string;
+  autoplay?: boolean;
+}
+const { stage, line, clock = "01:23:35", autoplay = true } = Astro.props;
+
+const tok = stage === "tokens" ? tokenScene(line) : null;
+const par = stage === "parse" ? parseScene(line) : null;
+const run = stage === "run" ? runScene(line, clock) : null;
+const frames: LabFrame[] = (tok ?? par ?? run)!.frames;
+const f0 = frames[0];
+const st = (k: string) => f0.s[k] ?? "";
+const tx = (k: string, fallback: string) => f0.t?.[k] ?? fallback;
+
+const plain = (s: string) => s.replace(/<[^>]+>/g, "").replace(/&[a-z]+;/g, "x");
+const longest = Math.max(...frames.map((f) => plain(f.caption).length));
+const lines = Math.max(2, Math.ceil(longest / 80));
+const linesNarrow = Math.max(3, Math.ceil(longest / 36));
+
+const chars = [...line];
+const q = (t: Token) => (t.quoted ? `"${t.text}"` : t.text);
+const recNote: Record<string, string> = {
+  skipWhitespace: "spaces", parsePipe: "|", parseRedir: "< > >>", parseDashQuoted: '-"…"', parseQuoted: '"…"', parseWord: "anything else",
+};
+const labels = { tokens: "Tokenizer animation", parse: "Parser animation", run: "Execution animation" };
+---
+
+<div class="sl" data-shell-lab data-autoplay={autoplay ? "true" : "false"} data-kind={f0.kind} role="group" aria-label={labels[stage]} tabindex="0"
+  style={`--cap-lines: ${lines}; --cap-lines-narrow: ${linesNarrow}`}>
+  <script is:inline type="application/json" data-frames set:html={JSON.stringify(frames)} />
+
+  {tok && (
+    <div class="sl-tok">
+      <p class="sl-h t-label">line</p>
+      <div class="sl-scroll">
+        <div class="sl-line" style={`--n: ${chars.length}`}>
+          <span class="sl-cur" data-k="cursor" style={`--v: ${f0.v?.cursor ?? 0}`}><span class="sl-cur__pos" data-k="pos">{tx("pos", "pos = 0")}</span></span>
+          {chars.map((c, i) => <span class="sl-c" data-k={`c${i}`} data-s={st(`c${i}`)}>{c === " " ? "·" : c}</span>)}
+          {tok.layout.error && (
+            <span class="sl-marker" data-k="marker" data-s={st("marker")}>
+              {chars.map((_, i) => <span class="sl-m">{tok.layout.error!.bad.includes(i) ? "^" : ""}</span>)}
+            </span>
+          )}
+        </div>
+      </div>
+
+      <p class="sl-h t-label">recognisers, tried in this order</p>
+      <ol class="sl-recs">
+        {RECOGNIZERS.map((r) => (
+          <li class="sl-rec" data-k={`r-${r}`} data-s={st(`r-${r}`)}><code>{r}</code><span>{recNote[r]}</span></li>
+        ))}
+      </ol>
+
+      <p class="sl-h t-label">tokens</p>
+      <ol class="sl-toks">
+        {tok.layout.tokens.map((t, j) => (
+          <li class:list={["sl-tk", { "is-q": t.quoted }]} data-k={`tk${j}`} data-s={st(`tk${j}`)}>
+            {t.quoted ? <><i>"</i>{t.text}<i>"</i></> : t.text}
+            <span class="sl-tk__i">{j}</span>
+          </li>
+        ))}
+        {tok.layout.error && <li class="sl-err">{tok.layout.error.message.split("\n")[0]}</li>}
+      </ol>
+    </div>
+  )}
+
+  {par && (
+    <div class="sl-parse">
+      <p class="sl-h t-label">tokens</p>
+      <div class="sl-stream">
+        {par.layout.segments.map((sg, k) => (
+          <>
+            {k > 0 && <span class="sl-pp" data-k={`pp${k - 1}`} data-s={st(`pp${k - 1}`)}>|</span>}
+            <span class="sl-seg" data-k={`sg${k}`} data-s={st(`sg${k}`)}>
+              {sg.tokens.map((t, j) => (
+                <span class:list={["sl-tk", "sl-tk--on", { "is-q": t.quoted }]} data-k={`pt${sg.first + j}`} data-s={st(`pt${sg.first + j}`)}>
+                  {t.quoted ? <><i>"</i>{t.text}<i>"</i></> : t.text}
+                </span>
+              ))}
+            </span>
+          </>
+        ))}
+      </div>
+      <div class="sl-cols" style={`--cols: ${par.layout.segments.length}`}>
+        {par.layout.cards.map((c, k) => (
+          <div class="sl-col" data-k={`col${k}`} data-s={st(`col${k}`)}>
+            <p class="sl-h t-label">segment {k + 1}</p>
+            <div class="sl-step" data-k={`rd${k}`} data-s={st(`rd${k}`)}>
+              <span class="sl-who">RedirectionParser</span>
+              <span class="sl-what" set:html={describeRedir({ core: [], in: c.in, out: c.out, peeled: 0 })} />
+            </div>
+            <div class="sl-step" data-k={`cp${k}`} data-s={st(`cp${k}`)}>
+              <span class="sl-who">CommandParser</span>
+              <span class="sl-what">registry["{c.name}"] → {par.layout.parsers[k]}</span>
+            </div>
+            <div class="sl-card" data-k={`pc${k}`} data-s={st(`pc${k}`)}>
+              <span class="sl-card__t">ParsedCommand</span>
+              <span><b>name</b> "{c.name}"</span>
+              <span><b>option</b> "{c.option}"</span>
+              <span><b>args</b> [{c.args.map(q).join(", ")}]</span>
+              {c.in.present && <span><b>in</b> {c.in.filename}</span>}
+              {c.out.present && <span><b>out</b> {c.out.filename} · {c.out.mode}</span>}
+              {c.hasSource && <span><b>hasSource</b> true</span>}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )}
+
+  {run && (
+    <div class="sl-run">
+      <div class="sl-chain" style={`--boxes: ${run.layout.cmds.length + run.layout.pipes + (run.layout.sink ? 1 : 0)}`}>
+        {run.layout.cmds.map((c, i) => (
+          <>
+            <div class="sl-box sl-cmd" data-k={`cmd${i}`} data-s={st(`cmd${i}`)}>
+              <span class="sl-box__t">command {i}</span>
+              <code class="sl-box__n">{c.label}</code>
+              <span class="sl-io" data-k={`ci${i}`}>{tx(`ci${i}`, "in: ?")}</span>
+              <span class="sl-io" data-k={`co${i}`}>{tx(`co${i}`, "out: ?")}</span>
+            </div>
+            {i < run.layout.pipes && (
+              <div class="sl-box sl-pipe" data-k={`pipe${i}`} data-s={st(`pipe${i}`)}>
+                <span class="sl-box__t">PipeStream #{i}</span>
+                <code class="sl-buf"><span class="sl-buf__r" data-k={`b${i}r`}>{tx(`b${i}r`, "")}</span><span class="sl-buf__u" data-k={`b${i}u`}>{tx(`b${i}u`, "")}</span></code>
+                <span class="sl-io" data-k={`bp${i}`}>{tx(`bp${i}`, "m_pos = 0")}</span>
+              </div>
+            )}
+          </>
+        ))}
+        {run.layout.sink && (
+          <div class="sl-box sl-sink" data-k="sink" data-s={st("sink")}>
+            <span class="sl-box__t">FileOutput<wbr />Stream</span>
+            <code class="sl-box__n">{run.layout.sink.file}</code>
+            <code class="sl-buf"><span class="sl-buf__u" data-k="sinkText">{tx("sinkText", "")}</span></code>
+            <span class="sl-io">{run.layout.sink.mode}</span>
+          </div>
+        )}
+      </div>
+
+      <div class="sl-resolver">
+        <div>
+          <p class="sl-h t-label">StreamResolver · input</p>
+          <ol class="sl-rules">
+            <li data-k="ri-pipe" data-s={st("ri-pipe")}><span>1</span>previous command's pipe</li>
+            <li data-k="ri-redir" data-s={st("ri-redir")}><span>2</span><code>&lt; file</code></li>
+            <li data-k="ri-arg" data-s={st("ri-arg")}><span>3</span>source argument</li>
+            <li data-k="ri-console" data-s={st("ri-console")}><span>4</span>console</li>
+            <li data-k="ri-none" data-s={st("ri-none")}><span>–</span>no input stream</li>
+          </ol>
+        </div>
+        <div>
+          <p class="sl-h t-label">StreamResolver · output</p>
+          <ol class="sl-rules">
+            <li data-k="ro-file" data-s={st("ro-file")}><span>1</span><code>&gt;</code> or <code>&gt;&gt;</code> file</li>
+            <li data-k="ro-default" data-s={st("ro-default")}><span>2</span>next pipe, or console if last</li>
+            <li data-k="ro-none" data-s={st("ro-none")}><span>–</span>no output stream</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  )}
+
+  <p class="sl__caption" data-caption aria-live="polite" set:html={f0.caption} />
+
+  <div class="sl__bar">
+    <div class="sl__ctrls" role="group" aria-label="Playback">
+      <button type="button" class="sl__btn" data-act="restart" aria-label="Restart">
+        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3 8a5 5 0 1 0 1.6-3.7M3 2.5V5.5h3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg>
+      </button>
+      <button type="button" class="sl__btn" data-act="prev" aria-label="Previous step" disabled>
+        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
+      </button>
+      <button type="button" class="sl__btn" data-act="play" aria-label={autoplay ? "Pause" : "Play"} data-state={autoplay ? "playing" : "paused"}>
+        <svg class="sl__ic-play" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M5 3l8 5-8 5z" fill="currentColor" /></svg>
+        <svg class="sl__ic-pause" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M4.5 3h2.6v10H4.5zM8.9 3h2.6v10H8.9z" fill="currentColor" /></svg>
+      </button>
+      <button type="button" class="sl__btn" data-act="next" aria-label="Next step">
+        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="m6 3 5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
+      </button>
+    </div>
+    <span class="sl__count t-meta" data-counter>1 / {frames.length}</span>
+  </div>
+</div>
+
+<style>
+  .sl {
+    --hl: var(--project, var(--accent));
+    --hl-soft: var(--project-soft, var(--accent-soft));
+    --cw: 17px;
+    border: 1px solid var(--line-strong);
+    background: var(--bg);
+    padding: 14px 16px 12px;
+    display: flex; flex-direction: column; gap: 10px;
+    font-family: var(--font-mono); font-size: 12px; line-height: 18px;
+  }
+  .sl[data-kind="done"] { --hl: var(--success); --hl-soft: color-mix(in srgb, var(--success) 16%, transparent); }
+  .sl[data-kind="warn"] { --hl: var(--warning); --hl-soft: color-mix(in srgb, var(--warning) 16%, transparent); }
+  .sl:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .sl p.sl-h { margin: 0; max-width: none; color: var(--ink-faint); font-size: 11px; line-height: 16px; }
+  .sl ol, .sl ul { list-style: none; margin: 0; padding: 0; font-size: 12px; line-height: 18px; }
+  .sl li { margin: 0; padding: 0; }
+  .sl li::before { content: none; }
+  .sl code { font-family: var(--font-mono); font-size: 12px; }
+  .sl * { transition: color 0.35s, background-color 0.35s, border-color 0.35s, opacity 0.35s, transform 0.35s; }
+
+  /* ---- tokens ---- */
+  .sl-tok { display: flex; flex-direction: column; gap: 8px; }
+  .sl-scroll { overflow-x: auto; padding-bottom: 2px; }
+  .sl-line { position: relative; display: grid; grid-template-columns: repeat(var(--n), var(--cw)); padding: 26px 0 4px; width: max-content; }
+  .sl-c { height: 26px; display: grid; place-items: center; font-size: 14px; color: var(--ink-muted); border-bottom: 2px solid transparent; }
+  .sl-c[data-s="ok"] { color: var(--ink); border-bottom-color: var(--line-strong); }
+  .sl-c[data-s="q"] { color: var(--hl); font-weight: 700; }
+  .sl-c[data-s="inq"] { color: var(--hl); background: var(--hl-soft); }
+  .sl-c[data-s="bad"] { color: var(--danger); background: color-mix(in srgb, var(--danger) 16%, transparent); font-weight: 700; }
+  .sl-c[data-s="ws"] { color: var(--ink-faint); background: var(--surface); }
+  .sl-c[data-s="eat"] { color: var(--ink); background: var(--hl-soft); border-bottom-color: var(--hl); font-weight: 700; }
+  .sl-c[data-s="done"] { color: var(--ink-faint); }
+  .sl-cur { position: absolute; top: 0; left: calc(var(--v, 0) * var(--cw)); height: 100%; width: var(--cw); border-left: 2px solid var(--hl); pointer-events: none; transition: left 0.45s ease-in-out; }
+  .sl-cur__pos { position: absolute; top: 2px; left: 4px; white-space: nowrap; font-size: 11px; line-height: 16px; color: var(--hl); font-weight: 700; }
+  .sl-marker { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(var(--n), var(--cw)); color: var(--danger); font-weight: 700; opacity: 0; }
+  .sl-marker[data-s="on"] { opacity: 1; }
+  .sl-m { text-align: center; }
+
+  .sl-recs { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+  .sl-rec { display: flex; flex-direction: column; gap: 2px; padding: 6px 8px; border: 1px solid var(--line); border-radius: var(--radius-s); background: var(--surface); color: var(--ink-muted); min-width: 0; position: relative; }
+  .sl-rec code { font-size: 11px; color: var(--ink-muted); overflow: hidden; text-overflow: ellipsis; }
+  .sl-rec span { font-size: 11px; color: var(--ink-faint); }
+  .sl-rec[data-s="no"] { opacity: 0.55; }
+  .sl-rec[data-s="no"] code { text-decoration: line-through; }
+  .sl-rec[data-s="no"]::after { content: "false"; position: absolute; bottom: 6px; right: 8px; font-size: 10px; line-height: 14px; color: var(--ink-faint); }
+  .sl-rec[data-s="yes"] { border-color: var(--hl); background: var(--hl-soft); }
+  .sl-rec[data-s="yes"] code { color: var(--ink); font-weight: 700; }
+  .sl-rec[data-s="yes"]::after { content: "\2713"; position: absolute; bottom: 5px; right: 8px; line-height: 14px; color: var(--hl); font-weight: 700; }
+
+  .sl-toks { display: flex; flex-wrap: wrap; gap: 6px; min-height: 34px; }
+  .sl-tk { position: relative; display: inline-flex; align-items: center; padding: 3px 8px; border: 1px solid var(--line-strong); border-radius: var(--radius-s); background: var(--surface); color: var(--ink); white-space: pre; font-size: 13px; opacity: 0; transform: translateY(4px); }
+  .sl-tk i { font-style: normal; color: var(--ink-faint); }
+  .sl-tk.is-q { border-style: dashed; border-color: var(--hl); }
+  .sl-tk__i { position: absolute; top: -8px; right: -5px; font-size: 9px; line-height: 12px; padding: 0 3px; border-radius: 6px; background: var(--bg); color: var(--ink-faint); }
+  .sl-tk[data-s="on"], .sl-tk--on { opacity: 1; transform: none; }
+  .sl-tk[data-s="new"] { opacity: 1; transform: none; background: var(--hl-soft); border-color: var(--hl); }
+  .sl-err { color: var(--danger); white-space: pre; }
+
+  /* ---- parse ---- */
+  .sl-parse { display: flex; flex-direction: column; gap: 10px; }
+  .sl-stream { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .sl-seg { display: inline-flex; flex-wrap: wrap; gap: 6px; padding: 5px; border: 1px dashed transparent; border-radius: var(--radius-s); }
+  .sl-seg[data-s="cut"] { border-color: var(--line-strong); }
+  .sl-seg[data-s="act"] { border-color: var(--hl); background: var(--hl-soft); }
+  .sl-pp { padding: 3px 8px; font-size: 13px; font-weight: 700; color: var(--ink); border: 1px solid var(--line-strong); border-radius: var(--radius-s); background: var(--surface); }
+  .sl-pp[data-s="cut"] { color: var(--hl); border-color: transparent; background: transparent; opacity: 0.6; }
+  .sl-tk[data-s="peel"] { opacity: 0.4; text-decoration: line-through; border-style: dotted; }
+  .sl-cols { display: grid; grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); gap: 8px; }
+  .sl-col { display: flex; flex-direction: column; gap: 6px; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius-s); min-width: 0; }
+  .sl-col[data-s="act"] { border-color: var(--hl); }
+  .sl-step, .sl-card { display: flex; flex-direction: column; gap: 2px; padding: 6px 8px; border: 1px dashed var(--line); border-radius: var(--radius-s); min-width: 0; }
+  .sl-step > *, .sl-card > * { opacity: 0; }
+  .sl-step[data-s="on"], .sl-card[data-s="on"] { border-style: solid; border-color: var(--line-strong); background: var(--surface); }
+  .sl-step[data-s="on"] > *, .sl-card[data-s="on"] > * { opacity: 1; }
+  .sl-who { font-size: 11px; color: var(--hl); font-weight: 700; }
+  .sl-what { color: var(--ink); overflow-wrap: anywhere; }
+  .sl-card__t { font-size: 11px; color: var(--ink-faint); }
+  .sl-card b { color: var(--ink-faint); font-weight: 400; margin-right: 4px; }
+  .sl-card span { color: var(--ink); overflow-wrap: anywhere; }
+
+  /* ---- run ---- */
+  .sl-run { display: flex; flex-direction: column; gap: 12px; }
+  .sl-chain { display: grid; grid-template-columns: repeat(var(--boxes), minmax(0, 1fr)); gap: 14px; }
+  .sl-box { position: relative; display: flex; flex-direction: column; gap: 3px; padding: 8px; border: 1px solid var(--line); border-radius: var(--radius-s); background: var(--surface); min-width: 0; }
+  .sl-box + .sl-box::before { content: "\2192"; position: absolute; left: -12px; top: 50%; transform: translateY(-50%); color: var(--ink-faint); font-size: 12px; }
+  .sl-box__t { font-size: 10px; line-height: 14px; color: var(--ink-faint); overflow-wrap: anywhere; }
+  .sl-box__n { color: var(--ink); font-weight: 700; overflow-wrap: anywhere; }
+  .sl-io { font-size: 11px; color: var(--ink-muted); overflow-wrap: anywhere; }
+  .sl-buf { display: block; min-height: 22px; padding: 2px 5px; border-radius: var(--radius-s); background: var(--surface-sunken); color: var(--code-ink); font-size: 12px; white-space: pre; overflow: hidden; text-overflow: ellipsis; }
+  .sl-buf__r { opacity: 0.45; }
+  .sl-pipe, .sl-sink { border-style: dashed; opacity: 0.45; }
+  .sl-pipe[data-s], .sl-sink[data-s] { opacity: 1; }
+  .sl-pipe[data-s=""], .sl-sink[data-s=""] { opacity: 0.45; }
+  .sl-cmd[data-s="act"] { border-color: var(--hl); }
+  .sl-cmd[data-s="run"] { border-color: var(--hl); background: var(--hl-soft); }
+  .sl-cmd[data-s="done"] .sl-box__n::after { content: " \2713"; color: var(--success); }
+  .sl-pipe[data-s="fill"], .sl-sink[data-s="fill"] { border-color: var(--hl); background: var(--hl-soft); }
+  .sl-pipe[data-s="read"] { border-color: var(--hl); }
+  .sl-pipe[data-s="spent"] { opacity: 0.6; }
+
+  .sl-resolver { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding-top: 10px; border-top: 1px solid var(--line); }
+  .sl-rules { display: flex; flex-direction: column; gap: 3px; margin-top: 4px !important; }
+  .sl-rules li { display: flex; gap: 8px; align-items: baseline; padding: 2px 6px; border-radius: var(--radius-s); color: var(--ink-muted); }
+  .sl-rules li span { color: var(--ink-faint); width: 1ch; }
+  .sl-rules li[data-s="no"] { opacity: 0.5; text-decoration: line-through; }
+  .sl-rules li[data-s="yes"] { color: var(--ink); background: var(--hl-soft); font-weight: 700; }
+  .sl-rules li[data-s="yes"]::after { content: "\2713"; color: var(--hl); margin-left: auto; }
+
+  /* ---- caption + controls (as in TreeLab) ---- */
+  .sl p.sl__caption { margin: 0; max-width: none; font-family: var(--font-sans); font-size: 15px; line-height: 24px; color: var(--ink-muted); min-height: calc(var(--cap-lines) * 24px); }
+  .sl__caption :global(code) { font-family: var(--font-mono); font-size: 0.88em; color: var(--ink); }
+  .sl__caption :global(b) { color: var(--ink); font-weight: 700; }
+  .sl__bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 8px; border-top: 1px solid var(--line); }
+  .sl__ctrls { display: flex; gap: 6px; }
+  .sl__btn { min-width: var(--touch-target); min-height: var(--touch-target); display: inline-grid; place-items: center; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); border-radius: var(--radius-s); cursor: pointer; }
+  .sl__btn:hover:not(:disabled) { border-color: var(--project, var(--accent)); }
+  .sl__btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  .sl__btn:disabled { opacity: 0.35; cursor: default; }
+  .sl__count { color: var(--ink-faint); }
+  .sl__btn[data-state="playing"] .sl__ic-play, .sl__btn[data-state="paused"] .sl__ic-pause { display: none; }
+
+  @container screen (max-width: 900px) {
+    .sl-recs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
+  @container screen (max-width: 640px) {
+    .sl { padding: 12px; --cw: 8.4px; }
+    .sl-c { font-size: 11px; }
+    .sl-cur__pos { font-size: 10px; }
+    .sl-recs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .sl-cols { grid-template-columns: minmax(0, 1fr); }
+    .sl-chain { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+    .sl-box { flex-direction: row; flex-wrap: wrap; align-items: baseline; column-gap: 10px; row-gap: 2px; padding: 6px 8px; }
+    .sl-box__t { flex-basis: 100%; }
+    .sl-buf { flex: 1 1 90px; min-height: 20px; }
+    .sl-box + .sl-box::before { content: "\2193"; left: 50%; top: -13px; transform: translateX(-50%); }
+    .sl-resolver { grid-template-columns: minmax(0, 1fr); }
+    .sl p.sl__caption { min-height: calc(var(--cap-lines-narrow) * 24px); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .sl *, .sl-cur { transition: none !important; }
+  }
+</style>
+
+<script>
+  import { initShellLab } from "../../scripts/shell-lab";
+  document.querySelectorAll<HTMLElement>("[data-shell-lab]").forEach(initShellLab);
+</script>

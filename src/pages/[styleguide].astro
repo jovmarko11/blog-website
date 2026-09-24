@@ -19,6 +19,9 @@ import TerminalHeading from "../components/ui/TerminalHeading.astro";
 import TickFlow from "../components/content/TickFlow.astro";
 import FlightLegs from "../components/content/FlightLegs.astro";
 import RunwayQueue from "../components/content/RunwayQueue.astro";
+import ShellLab from "../components/content/ShellLab.astro";
+import PipeRoles from "../components/content/PipeRoles.astro";
+import ParseLayers from "../components/project-art/ParseLayers.astro";
 
 const swatches = ["bg", "surface", "surface-raised", "surface-sunken", "ink", "ink-muted", "ink-faint", "accent", "accent-soft", "success", "warning", "danger"];
 const type = ["display-xl", "display-l", "heading-1", "heading-2", "heading-3", "body-l", "body", "body-s", "label", "meta", "prompt", "code"];
@@ -92,6 +95,16 @@ const type = ["display-xl", "display-l", "heading-1", "heading-2", "heading-3", 
       <TickFlow />
       <FlightLegs from="LHR" to="JFK" redirectAt="10:04" redirectTo="ATL" startAt="08:24" endAt="17:00" show={["LHR", "JFK", "ATL", "YYZ"]} autoplay={false} />
       <RunwayQueue airport="BEG" from="00:24" to="01:06" />
+    </section>
+
+    <section class="sg__project">
+      <Label index="08 —">CLI interpreter figures</Label>
+      <ParseLayers />
+      <ShellLab stage="tokens" line='time | tr -":" "." | wc -c > out.txt' autoplay={false} />
+      <ShellLab stage="tokens" line='echo "hi" @' autoplay={false} />
+      <ShellLab stage="parse" line='time | tr -":" "." | wc -c > out.txt' autoplay={false} />
+      <PipeRoles mark={["time", "tr", "wc"]} />
+      <ShellLab stage="run" line='time | tr -":" "." | wc -c > out.txt' autoplay={false} />
     </section>
   </div>
 </BaseLayout>

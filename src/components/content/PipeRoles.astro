@@ -1,0 +1,75 @@
+---
+/**
+ * PipeRoles — the 19 commands of cli-interpreter-cpp grouped by where they may stand in a pipeline.
+ * Derived from REGISTRY in lib/shell-model.ts (checked against the C++ descriptors) with the rule of
+ * Engine::validatePipelinePosition: not first needs an input stream, not last needs an output stream.
+ *
+ *   <PipeRoles mark={["time", "tr", "wc"]} />
+ */
+import { REGISTRY, positions } from "../../lib/shell-model";
+
+interface Props { mark?: string[] }
+const { mark = [] } = Astro.props;
+
+const groups = [
+  { key: "any", title: "in and out", note: "first, middle or last", pos: [true, true, true] },
+  { key: "first", title: "out only", note: "only first", pos: [true, false, false] },
+  { key: "last", title: "in only", note: "only last", pos: [false, false, true] },
+  { key: "alone", title: "neither", note: "only on its own", pos: [false, false, false] },
+].map((g) => ({
+  ...g,
+  cmds: REGISTRY.filter((c) => {
+    const p = positions(c.traits);
+    return p.first === g.pos[0] && p.middle === g.pos[1] && p.last === g.pos[2];
+  }),
+}));
+const slots = ["first", "middle", "last"];
+---
+
+<div class="pr" role="img" aria-label={groups.map((g) => `${g.title} (${g.note}): ${g.cmds.map((c) => c.name).join(", ") || "none"}`).join(". ")}>
+  {groups.map((g) => (
+    <div class:list={["pr__g", { "is-empty": !g.cmds.length }]}>
+      <div class="pr__head">
+        <span class="pr__title">{g.title}</span>
+        <span class="pr__slots" aria-hidden="true">
+          {slots.map((s, i) => <span class:list={["pr__slot", { "is-on": g.pos[i] }]}>{s}</span>)}
+        </span>
+      </div>
+      <ul class="pr__cmds">
+        {g.cmds.map((c) => (
+          <li class:list={["pr__c", { "is-mark": mark.includes(c.name), "is-ext": c.extension }]}>
+            <code class="pr__n">{c.name}</code>
+            <span class="pr__u">{c.usage}</span>
+          </li>
+        ))}
+        {!g.cmds.length && <li class="pr__none">no command</li>}
+      </ul>
+    </div>
+  ))}
+  <p class="pr__legend"><span class="pr__sw"></span> dotted: added beyond the assignment</p>
+</div>
+
+<style>
+  .pr { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 14px 16px; border: 1px solid var(--line-strong); background: var(--bg); font-family: var(--font-mono); font-size: 12px; line-height: 18px; }
+  .pr__g { display: flex; flex-direction: column; gap: 8px; padding: 10px; border: 1px solid var(--line); border-radius: var(--radius-s); min-width: 0; }
+  .pr__g.is-empty { border-style: dashed; }
+  .pr__head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 6px; }
+  .pr__title { color: var(--ink); font-weight: 700; }
+  .pr__slots { display: inline-flex; gap: 3px; }
+  .pr__slot { padding: 0 5px; border-radius: var(--radius-s); font-size: 10px; line-height: 16px; color: var(--ink-faint); text-decoration: line-through; }
+  .pr__slot.is-on { color: var(--project); background: var(--project-soft); text-decoration: none; }
+  .pr ul.pr__cmds { display: flex; flex-wrap: wrap; gap: 6px; list-style: none; margin: 0; padding: 0; font-size: 12px; line-height: 18px; }
+  .pr ul.pr__cmds li { margin: 0; padding: 0; }
+  .pr ul.pr__cmds li::before { content: none; }
+  .pr ul.pr__cmds li.pr__c { display: inline-flex; flex-direction: column; padding: 3px 8px; border: 1px solid var(--line-strong); border-radius: var(--radius-s); background: var(--surface); min-width: 0; }
+  .pr__c.is-ext { border-style: dotted; }
+  .pr__c.is-mark { border-color: var(--project); background: var(--project-soft); }
+  .pr__n { color: var(--ink); font-weight: 700; font-family: var(--font-mono); font-size: 12px; }
+  .pr__u { font-size: 10px; line-height: 14px; color: var(--ink-faint); overflow-wrap: anywhere; }
+  .pr__none { color: var(--ink-faint); font-style: italic; }
+  .pr p.pr__legend { grid-column: 1 / -1; margin: 0; max-width: none; font-size: 11px; line-height: 16px; color: var(--ink-faint); display: flex; align-items: center; gap: 6px; }
+  .pr__sw { width: 18px; height: 10px; border: 1px dotted var(--ink-muted); border-radius: 2px; }
+  @container screen (max-width: 640px) {
+    .pr { grid-template-columns: minmax(0, 1fr); padding: 12px; }
+  }
+</style>
