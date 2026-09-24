@@ -1,17 +1,40 @@
 ---
-
+/**
+ * Home — temporary placeholder until the hero (phase 5).
+ */
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Paper from "../components/layout/Paper.astro";
+import TerminalHeading from "../components/ui/TerminalHeading.astro";
+import Label from "../components/ui/Label.astro";
+import Button from "../components/ui/Button.astro";
+import { site } from "../config/site";
 ---
 
-<html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
-	</head>
-	<body>
-		<h1>Astro</h1>
-	</body>
-</html>
+<BaseLayout>
+  <Paper as="header">
+    <TerminalHeading cmd="man" arg={site.handle} />
+    <h1 class="t-display-xl home__name">{site.name}</h1>
+    <p class="home__lede">{site.description}</p>
+    <div class="home__actions">
+      <Button href="/projects/">→ projects/</Button>
+      <Button variant="ghost" href={site.links.cv}>cv.pdf</Button>
+    </div>
+  </Paper>
+
+  <section class="wrap home__note">
+    <Label index="00 —">Under construction</Label>
+    <p>The man-page hero with the project map arrives in phase 5. Until then: <a href="/styleguide/">/styleguide</a>.</p>
+  </section>
+</BaseLayout>
+
+<style>
+  .home__name { margin-top: 12px; }
+  .home__lede { margin-top: 12px; max-width: 56ch; font-size: 18px; line-height: 30px; color: var(--ink-muted); }
+  .home__actions { display: flex; gap: 12px; margin-top: 28px; flex-wrap: wrap; }
+  .home__note { padding-top: 48px; }
+  .home__note p { margin-top: 8px; color: var(--ink-muted); }
+
+  @container screen (max-width: 640px) {
+    .home__name { font-size: 44px; line-height: 48px; }
+  }
+</style>

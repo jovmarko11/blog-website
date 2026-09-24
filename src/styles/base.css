@@ -1,0 +1,69 @@
+/*
+ * base.css — reset, element defaults and the few global utilities.
+ * Component styles live inside each .astro component (scoped).
+ * Colors, spacing and fonts come from generated/tokens.css — never hard-code them here.
+ */
+
+/* ---------- reset ---------- */
+*, *::before, *::after { box-sizing: border-box; }
+* { margin: 0; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+img, picture, video, canvas, svg { display: block; max-width: 100%; }
+input, button, textarea, select { font: inherit; color: inherit; }
+button { cursor: pointer; background: none; border: 0; padding: 0; }
+p, h1, h2, h3, h4, h5, h6 { overflow-wrap: break-word; }
+ul[role="list"], ol[role="list"] { list-style: none; padding: 0; }
+
+/* ---------- page ---------- */
+html { background: var(--bg); }
+body {
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 16px;
+  line-height: 26px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { color: var(--accent-strong); }
+
+code, kbd, pre, samp { font-family: var(--font-mono); }
+
+::selection { background: var(--accent); color: var(--on-accent); }
+
+/* One focus ring for the whole site (design system: 2px solid accent, 2px offset). */
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* ---------- utilities ---------- */
+
+/* Responsive root. Components adapt with `@container screen (max-width: …)`,
+   using the breakpoints bp-sm (640px) and bp-md (900px) from tokens. */
+.screen { container: screen / inline-size; min-height: 100vh; display: flex; flex-direction: column; }
+.screen > main { flex: 1; }
+
+/* Page-width wrapper. */
+.wrap { width: 100%; max-width: var(--wide-width); margin-inline: auto; padding-inline: var(--space-5); }
+.wrap--narrow { max-width: calc(var(--content-width) + 2 * var(--space-5)); }
+
+/* Graph paper: minor grid every 24px, major every 120px. Pure texture. */
+.paper {
+  background-color: var(--bg);
+  background-image:
+    linear-gradient(var(--grid-major) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-major) 1px, transparent 1px),
+    linear-gradient(var(--grid-minor) 1px, transparent 1px),
+    linear-gradient(90deg, var(--grid-minor) 1px, transparent 1px);
+  background-size: 120px 120px, 120px 120px, 24px 24px, 24px 24px;
+}
+
+.visually-hidden {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}

@@ -1,43 +1,43 @@
-# Astro Starter Kit: Minimal
+# ~/jovmarko05
 
-```sh
-npm create astro@latest -- --template minimal
+Personal blog and portfolio: one page per GitHub project, explaining the idea, the math, the code and the mistakes.
+Built with [Astro](https://astro.build) + MDX. Design comes from the *Marko Jovanović* design system.
+
+## Commands
+
+| Command            | What it does                                                   |
+| ------------------ | -------------------------------------------------------------- |
+| `npm run dev`      | Dev server at `localhost:4321` (regenerates tokens first)      |
+| `npm run build`    | Production build into `dist/`                                  |
+| `npm run preview`  | Serve the built `dist/` locally                                |
+| `npm run tokens`   | Regenerate CSS from `design/tokens.json`                       |
+
+## Structure
+
+```
+design/tokens.json          design-system tokens (colors per theme, type, spacing…) — the source of truth
+scripts/build-tokens.mjs    tokens.json → src/styles/generated/*.css
+src/
+  config/site.ts            name, handle, links, navigation — change site-wide facts here
+  styles/
+    generated/              tokens.css + typography.css (GENERATED, don't edit)
+    base.css                reset, element defaults, utilities (.screen, .wrap, .paper)
+    global.css              imports all of the above; loaded once by BaseLayout
+  layouts/BaseLayout.astro  <head>, theme, NavBar, <main>, StatusBar
+  components/
+    brand/                  Logo, Cursor
+    layout/                 NavBar, StatusBar, ThemeToggle, Paper
+    ui/                     Label, Tag, Button, Kbd, TerminalHeading
+  pages/                    one file = one route (index, styleguide, …)
+public/                     static files served as-is (favicon.svg, cv.pdf)
 ```
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+## Conventions
 
-## 🚀 Project Structure
-
-Inside of your Astro project, you'll see the following folders and files:
-
-```text
-/
-├── public/
-├── src/
-│   └── pages/
-│       └── index.astro
-└── package.json
-```
-
-Astro looks for `.astro` or `.md` files in the `src/pages/` directory. Each page is exposed as a route based on its file name.
-
-There's nothing special about `src/components/`, but that's where we like to put any Astro/React/Vue/Svelte/Preact components.
-
-Any static assets, like images, can be placed in the `public/` directory.
-
-## 🧞 Commands
-
-All commands are run from the root of the project, from a terminal:
-
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `npm install`             | Installs dependencies                            |
-| `npm run dev`             | Starts local dev server at `localhost:4321`      |
-| `npm run build`           | Build your production site to `./dist/`          |
-| `npm run preview`         | Preview your build locally, before deploying     |
-| `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `npm run astro -- --help` | Get help using the Astro CLI                     |
-
-## 👀 Want to learn more?
-
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+- **Tokens, never raw values.** Colors, spacing, radii and fonts always come from CSS variables (`var(--accent)`, `var(--space-5)`).
+  To change a color, edit `design/tokens.json` and run `npm run tokens`.
+- **Styles live with their component** (scoped `<style>` in the `.astro` file). Global CSS is only reset, element defaults and utilities.
+- **Type styles** are classes: `t-display-xl`, `t-heading-1`, `t-body-l`, `t-label`, `t-meta`, `t-prompt`, `t-code`…
+- **Responsive with container queries** on `.screen`: `@container screen (max-width: 640px)` (phone) and `900px` (tablet).
+- **Themes:** `data-theme="dark" | "light"` on `<html>`. Dark is the default; the choice is saved in `localStorage`.
+- **Every new component** gets a doc comment at the top (what it is + usage example) and a demo on `/styleguide`.

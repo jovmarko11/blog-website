@@ -1,0 +1,67 @@
+---
+/**
+ * BaseLayout — the shell of every page:
+ * <head> (meta, fonts, global CSS, theme before paint) → NavBar → <main> → StatusBar.
+ */
+import "@fontsource-variable/manrope";
+import "@fontsource-variable/jetbrains-mono";
+import "../styles/global.css";
+
+import NavBar from "../components/layout/NavBar.astro";
+import StatusBar from "../components/layout/StatusBar.astro";
+import { site } from "../config/site";
+
+interface Props {
+  /** Page title; the site title is appended. Omit on the home page. */
+  title?: string;
+  description?: string;
+  /** Keep the page out of search engines (e.g. the style guide). */
+  noindex?: boolean;
+  /** Passed to the status bar. */
+  projects?: number;
+  statusError?: string;
+}
+
+const { title, description = site.description, noindex = false, projects, statusError } = Astro.props;
+const fullTitle = title ? `${title} · ${site.title}` : site.title;
+---
+
+<!doctype html>
+<html lang={site.lang} data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{fullTitle}</title>
+    <meta name="description" content={description} />
+    {noindex && <meta name="robots" content="noindex" />}
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="generator" content={Astro.generator} />
+
+    <!-- Apply the saved theme before first paint (no flash). Dark is the default. -->
+    <script is:inline>
+      try {
+        const saved = localStorage.getItem("theme");
+        if (saved === "light" || saved === "dark") document.documentElement.dataset.theme = saved;
+      } catch {}
+    </script>
+  </head>
+
+  <body>
+    <div class="screen">
+      <div class="shell"><NavBar /></div>
+      <main id="main">
+        <slot />
+      </main>
+      <div class="shell shell--bottom"><StatusBar projects={projects} error={statusError} /></div>
+    </div>
+  </body>
+</html>
+
+<style>
+  .shell { padding: 16px 24px 0; }
+  .shell--bottom { padding: 48px 24px 16px; }
+  @container screen (max-width: 640px) {
+    .shell { padding: 12px 12px 0; }
+    .shell--bottom { padding: 32px 0 0; }
+  }
+</style>

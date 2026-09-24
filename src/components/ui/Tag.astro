@@ -1,0 +1,50 @@
+---
+/**
+ * Tag — mono chip for tech stack, tools, course codes and project status.
+ *   <Tag>C++</Tag>                      stack (default)
+ *   <Tag variant="solid">CLion</Tag>    highlighted tool
+ *   <Tag variant="accent">featured</Tag>
+ *   <Tag status="shipped" />            status (label derived from value)
+ */
+export type Status = "shipped" | "in-progress" | "lost";
+
+interface Props {
+  variant?: "default" | "solid" | "accent";
+  status?: Status;
+}
+const { variant = "default", status } = Astro.props;
+const statusLabel: Record<Status, string> = { shipped: "shipped", "in-progress": "in progress", lost: "lost" };
+---
+
+<span class:list={["tag", `tag--${variant}`, status && ["tag--status", `tag--${status}`]]}>
+  {status ? statusLabel[status] : <slot />}
+</span>
+
+<style>
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 500;
+    white-space: nowrap;
+    border-radius: var(--radius-s);
+    border: 1px solid var(--line);
+    background: var(--surface-raised);
+    color: var(--ink-muted);
+  }
+  .tag--solid { background: var(--ink); border-color: var(--ink); color: var(--bg); }
+  .tag--accent { background: var(--accent-soft); border-color: transparent; color: var(--accent-strong); }
+
+  /* Status: the dot's shape carries meaning too (filled / ring / dashed), not only its color. */
+  .tag--status::before { content: ""; width: 7px; height: 7px; border-radius: 50%; }
+  .tag--shipped { color: var(--success); }
+  .tag--shipped::before { background: currentColor; }
+  .tag--in-progress { color: var(--warning); }
+  .tag--in-progress::before { border: 2px solid currentColor; width: 8px; height: 8px; }
+  .tag--lost { color: var(--danger); }
+  .tag--lost::before { border: 1.5px dashed currentColor; width: 8px; height: 8px; }
+</style>

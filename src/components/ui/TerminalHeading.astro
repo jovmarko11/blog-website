@@ -1,0 +1,43 @@
+---
+/**
+ * TerminalHeading — a shell command above a readable sans heading.
+ *   <TerminalHeading cmd="cat" arg="idea.md">What does a shell actually do?</TerminalHeading>
+ * The command must match the content below it. Use `cursor` on at most one per screen.
+ */
+import Cursor from "../brand/Cursor.astro";
+
+interface Props {
+  cmd: string;
+  arg?: string;
+  /** Heading level of the title. */
+  level?: 1 | 2 | 3;
+  cursor?: boolean;
+}
+const { cmd, arg, level = 2, cursor = false } = Astro.props;
+const Heading = `h${level}` as "h1" | "h2" | "h3";
+const hasTitle = Astro.slots.has("default");
+---
+
+<div class="th">
+  <p class="th__prompt t-prompt">
+    <span class="th__sign" aria-hidden="true">$</span><span class="th__cmd">{cmd}</span>{arg && <span class="th__arg"> {arg}</span>}{cursor && !hasTitle && <Cursor />}
+  </p>
+  {hasTitle && (
+    <Heading class="th__title t-heading-1">
+      <slot />{cursor && <Cursor />}
+    </Heading>
+  )}
+</div>
+
+<style>
+  .th__prompt { color: var(--ink-faint); }
+  .th__sign { color: var(--accent); margin-right: 0.5em; }
+  .th__cmd { color: var(--ink); }
+  .th__arg { color: var(--ink-muted); }
+  .th__title { margin-top: 4px; color: var(--ink); }
+
+  @container screen (max-width: 640px) {
+    .th__prompt { font-size: 13px; }
+    .th__title { font-size: 24px; line-height: 30px; }
+  }
+</style>

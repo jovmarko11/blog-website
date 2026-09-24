@@ -1,0 +1,21 @@
+---
+/**
+ * Label — mono, uppercase, letter-spaced section label (the CV signature).
+ *   <Label index="01 —">Profile</Label>
+ */
+interface Props {
+  /** Dimmed prefix, e.g. "01 —" or "FIG." */
+  index?: string;
+  as?: "p" | "span" | "h2" | "h3";
+}
+const { index, as: Tag = "p" } = Astro.props;
+---
+
+<Tag class="label t-label">
+  {index && <span class="label__index">{index}</span>}<slot />
+</Tag>
+
+<style>
+  .label { color: var(--accent); }
+  .label__index { color: var(--ink-faint); font-weight: 500; margin-right: 0.6em; }
+</style>

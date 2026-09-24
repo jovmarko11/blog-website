@@ -1,0 +1,37 @@
+---
+/**
+ * Logo — the typographic brand mark.
+ *   variant="mark"  → jovmarko05▮   (L1: hero, CV, OG image)
+ *   variant="path"  → ~/jovmarko05  (L3: navigation)
+ * Always text, never an image, so it follows the theme.
+ */
+import Cursor from "./Cursor.astro";
+import { site } from "../../config/site";
+
+interface Props {
+  variant?: "mark" | "path";
+  /** Font size in px. */
+  size?: number;
+}
+const { variant = "path", size = 14 } = Astro.props;
+---
+
+<span class="logo" style={`font-size:${size}px`}>
+  {variant === "path" && <span class="logo__path">~/</span>}
+  {site.handle}
+  {variant === "mark" && <Cursor />}
+</span>
+
+<style>
+  .logo {
+    display: inline-flex;
+    align-items: center;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .logo__path { color: var(--accent); }
+</style>

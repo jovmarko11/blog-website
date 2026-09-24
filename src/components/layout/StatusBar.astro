@@ -1,0 +1,48 @@
+---
+/**
+ * StatusBar — site footer styled as an IDE status bar.
+ * Keep every segment true: branch, error count, project count, location, year.
+ */
+import { site } from "../../config/site";
+
+interface Props {
+  /** Number of published projects (wired to the content collection in phase 3). */
+  projects?: number;
+  /** Show an error segment instead of "✓ 0 errors" (used by the 404 page). */
+  error?: string;
+}
+const { projects, error } = Astro.props;
+const year = new Date().getFullYear();
+---
+
+<footer class="status">
+  <span class="status__branch">⎇ main</span>
+  {error ? <span class="status__error">✕ {error}</span> : <span>✓ 0 errors</span>}
+  {projects !== undefined && <span>{projects} projects</span>}
+  <span class="status__push">{site.location.coords}</span>
+  <span>UTF-8</span>
+  <span>© {year} {site.name}</span>
+</footer>
+
+<style>
+  .status {
+    display: flex;
+    align-items: stretch;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 16px;
+    color: var(--ink-faint);
+  }
+  .status > span { padding: 6px 12px; border-right: 1px solid var(--line); white-space: nowrap; }
+  .status > span:last-child { border-right: 0; }
+  .status__branch { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+  .status__error { color: var(--danger); }
+  .status__push { margin-left: auto; border-left: 1px solid var(--line); }
+
+  @container screen (max-width: 640px) {
+    .status > span:not(.status__branch):not(:last-child) { display: none; }
+    .status > span:last-child { margin-left: auto; }
+  }
+</style>

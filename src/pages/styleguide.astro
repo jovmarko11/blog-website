@@ -1,0 +1,98 @@
+---
+/**
+ * /styleguide — living reference of the components built so far.
+ * Not linked from the navigation and hidden from search engines.
+ * Add every new component here when you create it.
+ */
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Paper from "../components/layout/Paper.astro";
+import Logo from "../components/brand/Logo.astro";
+import Cursor from "../components/brand/Cursor.astro";
+import Label from "../components/ui/Label.astro";
+import Tag from "../components/ui/Tag.astro";
+import Button from "../components/ui/Button.astro";
+import Kbd from "../components/ui/Kbd.astro";
+import TerminalHeading from "../components/ui/TerminalHeading.astro";
+
+const swatches = ["bg", "surface", "surface-raised", "surface-sunken", "ink", "ink-muted", "ink-faint", "accent", "accent-soft", "success", "warning", "danger"];
+const type = ["display-xl", "display-l", "heading-1", "heading-2", "heading-3", "body-l", "body", "body-s", "label", "meta", "prompt", "code"];
+---
+
+<BaseLayout title="Style guide" noindex>
+  <Paper as="header">
+    <TerminalHeading cmd="ls" arg="src/components/" level={1}>Style guide</TerminalHeading>
+    <p class="sg__lede">Every component and token in one place. Toggle the theme in the nav to check both.</p>
+  </Paper>
+
+  <div class="wrap sg">
+    <section>
+      <Label index="01 —">Colors</Label>
+      <div class="sg__swatches">
+        {swatches.map((name) => (
+          <div class="sg__swatch">
+            <span style={`background: var(--${name})`}></span>
+            <code>--{name}</code>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <section>
+      <Label index="02 —">Type</Label>
+      <div class="sg__type">
+        {type.map((name) => (
+          <div class="sg__type-row">
+            <code>.t-{name}</code>
+            <p class={`t-${name}`}>Path tracer from scratch</p>
+          </div>
+        ))}
+      </div>
+    </section>
+
+    <section>
+      <Label index="03 —">Brand</Label>
+      <div class="sg__row">
+        <Logo variant="mark" size={40} />
+        <Logo variant="path" size={20} />
+        <span class="t-heading-2">Cursor<Cursor /></span>
+      </div>
+    </section>
+
+    <section>
+      <Label index="04 —">Tags</Label>
+      <div class="sg__row">
+        <Tag>C++</Tag><Tag>Python</Tag><Tag variant="solid">CLion</Tag><Tag variant="accent">featured</Tag>
+        <Tag status="shipped" /><Tag status="in-progress" /><Tag status="lost" />
+      </div>
+    </section>
+
+    <section>
+      <Label index="05 —">Buttons</Label>
+      <div class="sg__row">
+        <Button href="#">→ view projects</Button>
+        <Button variant="ghost" href="#">github.com/jovmarko11</Button>
+        <Button variant="link" href="#">read the write-up <span data-arrow>→</span></Button>
+        <Kbd>⌘K</Kbd>
+      </div>
+    </section>
+
+    <section>
+      <Label index="06 —">Terminal heading</Label>
+      <TerminalHeading cmd="cat" arg="idea.md" cursor>What does a shell actually do?</TerminalHeading>
+    </section>
+  </div>
+</BaseLayout>
+
+<style>
+  .sg__lede { margin-top: 12px; color: var(--ink-muted); font-size: 18px; line-height: 30px; }
+  .sg { display: flex; flex-direction: column; gap: 48px; padding-top: 48px; }
+  .sg section > :global(.label) { margin-bottom: 16px; }
+  .sg__row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .sg__swatches { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+  .sg__swatch { display: flex; flex-direction: column; gap: 6px; }
+  .sg__swatch span { height: 48px; border: 1px solid var(--line-strong); border-radius: var(--radius-s); }
+  .sg__swatch code, .sg__type-row code { font-size: 12px; color: var(--ink-faint); }
+  .sg__type { display: flex; flex-direction: column; border-top: 1px solid var(--line); }
+  .sg__type-row { display: grid; grid-template-columns: 140px 1fr; gap: 16px; align-items: baseline; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  @container screen (max-width: 640px) { .sg__type-row { grid-template-columns: 1fr; gap: 4px; } }
+</style>

@@ -1,0 +1,44 @@
+---
+/**
+ * ThemeToggle — switches between the dark (default) and light reading theme.
+ * The initial theme is applied before paint by the inline script in BaseLayout;
+ * this component only flips it and remembers the choice in localStorage.
+ */
+---
+
+<button class="theme-toggle" type="button" data-theme-toggle aria-label="Switch color theme">
+  <span class="theme-toggle__key">theme:</span><span class="theme-toggle__value" data-theme-value>dark</span>
+</button>
+
+<script>
+  const STORAGE_KEY = "theme";
+  const root = document.documentElement;
+
+  function render() {
+    const current = root.dataset.theme ?? "dark";
+    document.querySelectorAll<HTMLElement>("[data-theme-value]").forEach((el) => (el.textContent = current));
+  }
+
+  document.querySelectorAll<HTMLButtonElement>("[data-theme-toggle]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const next = root.dataset.theme === "light" ? "dark" : "light";
+      root.dataset.theme = next;
+      try { localStorage.setItem(STORAGE_KEY, next); } catch { /* private mode: theme just won't persist */ }
+      render();
+    });
+  });
+
+  render();
+</script>
+
+<style>
+  .theme-toggle {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink-faint);
+    padding: 4px 6px;
+    border-radius: var(--radius-s);
+  }
+  .theme-toggle:hover { color: var(--ink); background: var(--surface-raised); }
+  .theme-toggle__value { color: var(--ink-muted); margin-left: 4px; }
+</style>

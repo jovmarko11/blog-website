@@ -1,0 +1,27 @@
+---
+/**
+ * Paper — a full-width band on graph paper (the brand's "space" motif).
+ * Used for page headers and the hero. Content is centered in a .wrap.
+ *   <Paper><h1>…</h1></Paper>
+ *   <Paper width="narrow" as="header">…</Paper>
+ */
+interface Props {
+  as?: "section" | "header" | "div";
+  width?: "wide" | "narrow";
+}
+const { as: Tag = "section", width = "wide" } = Astro.props;
+---
+
+<Tag class="paper band">
+  <div class:list={["wrap", { "wrap--narrow": width === "narrow" }, "band__inner"]}>
+    <slot />
+  </div>
+</Tag>
+
+<style>
+  .band { border-block: 1px solid var(--line); }
+  .band__inner { padding-block: 56px 40px; }
+  @container screen (max-width: 640px) {
+    .band__inner { padding-block: 40px 28px; }
+  }
+</style>
