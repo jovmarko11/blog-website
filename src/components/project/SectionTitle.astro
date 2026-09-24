@@ -1,0 +1,12 @@
+---
+/** SectionTitle — replaces `### Title` in a project article: the human title of a section. */
+interface Props { id?: string; }
+const { id } = Astro.props;
+---
+
+<h3 id={id} class="st t-heading-1"><slot /></h3>
+
+<style>
+  .st { margin-top: 4px; color: var(--ink); }
+  @container screen (max-width: 640px) { .st { font-size: 24px; line-height: 30px; } }
+</style>

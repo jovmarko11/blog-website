@@ -1,0 +1,33 @@
+---
+/**
+ * /projects/<slug>/ — one page per .mdx file in src/content/projects.
+ */
+import { getCollection, render } from "astro:content";
+import ProjectLayout from "../../layouts/ProjectLayout.astro";
+import SectionHeading from "../../components/project/SectionHeading.astro";
+import SectionTitle from "../../components/project/SectionTitle.astro";
+import CodeBlock from "../../components/content/CodeBlock.astro";
+import Note from "../../components/content/Note.astro";
+import Figure from "../../components/content/Figure.astro";
+import Terminal from "../../components/content/Terminal.astro";
+import ParseLayers from "../../components/project-art/ParseLayers.astro";
+import { getProjects } from "../../lib/projects";
+
+export async function getStaticPaths() {
+  const projects = await getProjects();
+  return projects.map((project, i) => ({
+    params: { slug: project.id },
+    props: { project, index: projects.length - i, prev: projects[i - 1], next: projects[i + 1] },
+  }));
+}
+
+const { project, index, prev, next } = Astro.props;
+const { Content, headings } = await render(project);
+
+/** Components available inside every project .mdx without importing them. */
+const components = { h2: SectionHeading, h3: SectionTitle, CodeBlock, Note, Figure, Terminal, ParseLayers };
+---
+
+<ProjectLayout project={project} index={index} headings={headings} prev={prev} next={next}>
+  <Content components={components} />
+</ProjectLayout>

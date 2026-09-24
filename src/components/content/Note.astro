@@ -1,0 +1,28 @@
+---
+/**
+ * Note — a callout written like a code comment.
+ *   <Note>Insight or shortcut.</Note>                       → // NOTE
+ *   <Note kind="wrong">A mistake I made and what it taught me.</Note>  → // TODO: this was wrong
+ *   <Note title="// WHY">…</Note>                            custom header
+ * Use at most one per ~3 screens of text.
+ */
+interface Props {
+  kind?: "note" | "wrong";
+  title?: string;
+}
+const { kind = "note", title } = Astro.props;
+const heading = title ?? (kind === "wrong" ? "// TODO: this was wrong" : "// NOTE");
+---
+
+<aside class:list={["note", `note--${kind}`]}>
+  <p class="note__head">{heading}</p>
+  <div class="note__body"><slot /></div>
+</aside>
+
+<style>
+  .note { border: 1px solid var(--line-strong); border-radius: var(--radius-m); background: var(--surface); padding: 14px 18px; }
+  .note__head { font-family: var(--font-mono); font-size: 12px; line-height: 16px; font-weight: 700; letter-spacing: 0.08em; color: var(--accent); margin-bottom: 6px; }
+  .note--wrong .note__head { color: var(--warning); }
+  .note__body { font-size: 16px; line-height: 26px; color: var(--ink-muted); }
+  .note__body :global(p + p) { margin-top: 10px; }
+</style>

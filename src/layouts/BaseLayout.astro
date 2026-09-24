@@ -10,6 +10,7 @@ import "../styles/global.css";
 import NavBar from "../components/layout/NavBar.astro";
 import StatusBar from "../components/layout/StatusBar.astro";
 import { site } from "../config/site";
+import { getProjects } from "../lib/projects";
 
 interface Props {
   /** Page title; the site title is appended. Omit on the home page. */
@@ -17,12 +18,11 @@ interface Props {
   description?: string;
   /** Keep the page out of search engines (e.g. the style guide). */
   noindex?: boolean;
-  /** Passed to the status bar. */
-  projects?: number;
   statusError?: string;
 }
 
-const { title, description = site.description, noindex = false, projects, statusError } = Astro.props;
+const { title, description = site.description, noindex = false, statusError } = Astro.props;
+const projectCount = (await getProjects()).length;
 const fullTitle = title ? `${title} · ${site.title}` : site.title;
 ---
 
@@ -52,7 +52,7 @@ const fullTitle = title ? `${title} · ${site.title}` : site.title;
       <main id="main">
         <slot />
       </main>
-      <div class="shell shell--bottom"><StatusBar projects={projects} error={statusError} /></div>
+      <div class="shell shell--bottom"><StatusBar projects={projectCount} error={statusError} /></div>
     </div>
   </body>
 </html>

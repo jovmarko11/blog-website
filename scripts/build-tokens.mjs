@@ -53,6 +53,11 @@ for (const family of ["spacing", "radius", "layout"]) {
   scalar.push(`  /* ${family} */`);
   for (const t of tokens[family]?.tokens ?? []) scalar.push(decl(t.name, t.value));
 }
+// Project hues also get a fixed "-dark" copy for surfaces that stay dark in every theme (code, terminal).
+scalar.push("  /* project hues on always-dark surfaces */");
+for (const t of tokens.color.tokens) {
+  if (t.name.startsWith("hue-") && typeof t.value === "object") scalar.push(decl(`${t.name}-dark`, t.value[first]));
+}
 scalar.push("  /* font families */");
 for (const [key, stack] of Object.entries(tokens.type.families)) scalar.push(decl(`font-${key}`, stack));
 css += `\n:root {\n${scalar.join("\n")}\n}\n`;

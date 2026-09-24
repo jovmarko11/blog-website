@@ -1,0 +1,56 @@
+---
+/**
+ * Terminal — a real terminal session: commands with their output.
+ *   <Terminal lines={[
+ *     { cmd: 'echo "one two three" | wc -w', out: "3" },
+ *     { cmd: "foo", out: "Unknown command: foo", error: true },
+ *   ]} />
+ * Paste real output, never invented output.
+ */
+interface Line {
+  cmd: string;
+  out?: string;
+  error?: boolean;
+}
+interface Props {
+  lines: Line[];
+  /** Prompt symbol of the program being shown. */
+  prompt?: string;
+  /** Show a blinking cursor on a final empty prompt. */
+  cursor?: boolean;
+}
+const { lines, prompt = "$", cursor = true } = Astro.props;
+---
+
+<div class="term" role="img" aria-label="Terminal session">
+  {lines.map((l) => (
+    <>
+      <div class="term__cmd"><span class="term__sign">{prompt}</span>{l.cmd}</div>
+      {l.out && <div class:list={["term__out", { "term__out--error": l.error }]}>{l.out}</div>}
+    </>
+  ))}
+  {cursor && <div class="term__cmd"><span class="term__sign">{prompt}</span><span class="term__cursor" aria-hidden="true"></span></div>}
+</div>
+
+<style>
+  .term {
+    background: var(--surface-sunken);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-m);
+    padding: 14px 16px;
+    font-family: var(--font-mono);
+    font-size: 14px;
+    line-height: 22px;
+    color: var(--code-ink);
+    overflow-x: auto;
+  }
+  .term__cmd, .term__out { white-space: pre; }
+  .term__sign { color: var(--syn-keyword); margin-right: 0.6em; }
+  .term__out { color: var(--code-muted); }
+  .term__out--error { color: var(--code-danger); }
+  .term__cursor { display: inline-block; width: 0.55em; height: 1.05em; vertical-align: -0.18em; background: var(--syn-keyword); animation: blink 1.1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  @container screen (max-width: 640px) {
+    .term { margin-inline: -20px; border-radius: 0; border-inline: 0; font-size: 12.5px; line-height: 20px; }
+  }
+</style>

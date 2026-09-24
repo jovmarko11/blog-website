@@ -1,0 +1,30 @@
+---
+/**
+ * SectionHeading — replaces every `## Heading` inside a project article.
+ * Renders "02 — ARCHITECTURE" + "$ tree src/ -L 1". The human title follows as `### …`.
+ */
+import Label from "../ui/Label.astro";
+import { SECTIONS, SECTION_ORDER } from "./sections";
+
+interface Props { id: string; }
+const { id } = Astro.props;
+const known = SECTIONS[id];
+const n = SECTION_ORDER.indexOf(id);
+const index = n >= 0 ? `${String(n + 1).padStart(2, "0")} —` : "—";
+---
+
+<h2 id={id} class="sh">
+  <Label as="span" index={index}><slot /></Label>
+  {known && (
+    <span class="sh__prompt t-prompt"><span class="sh__sign" aria-hidden="true">$</span><span class="sh__cmd">{known.cmd}</span> <span class="sh__arg">{known.arg}</span></span>
+  )}
+</h2>
+
+<style>
+  .sh { display: flex; flex-direction: column; gap: 8px; margin-top: 64px; scroll-margin-top: 24px; }
+  .sh__prompt { color: var(--ink-faint); }
+  .sh__sign { color: var(--accent); margin-right: 0.5em; }
+  .sh__cmd { color: var(--ink); }
+  .sh__arg { color: var(--ink-muted); }
+  @container screen (max-width: 640px) { .sh { margin-top: 48px; } .sh__prompt { font-size: 13px; } }
+</style>

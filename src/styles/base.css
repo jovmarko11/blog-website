@@ -30,7 +30,7 @@ body {
 a { color: var(--accent); text-decoration: none; }
 a:hover { color: var(--accent-strong); }
 
-code, kbd, pre, samp { font-family: var(--font-mono); }
+code, kbd, pre, samp { font-family: var(--font-mono); font-variant-ligatures: none; }
 
 ::selection { background: var(--accent); color: var(--on-accent); }
 
@@ -66,4 +66,30 @@ code, kbd, pre, samp { font-family: var(--font-mono); }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
+
+/* ---------- code: Shiki CSS-variables theme → design tokens ---------- */
+:root {
+  --shiki-foreground: var(--code-ink);
+  --shiki-background: var(--surface-sunken);
+  --shiki-token-keyword: var(--syn-keyword);
+  --shiki-token-string: var(--syn-string);
+  --shiki-token-string-expression: var(--syn-string);
+  --shiki-token-constant: var(--syn-number);
+  --shiki-token-function: var(--syn-fn);
+  --shiki-token-parameter: var(--code-ink);
+  --shiki-token-comment: var(--code-muted);
+  --shiki-token-punctuation: var(--code-muted);
+  --shiki-token-link: var(--syn-fn);
+}
+
+/* Inline code in prose. */
+:not(pre) > code {
+  font-size: 0.86em;
+  padding: 1px 5px;
+  border-radius: var(--radius-s);
+  background: var(--surface-raised);
+  color: var(--ink);
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
 }

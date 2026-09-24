@@ -1,0 +1,59 @@
+---
+/**
+ * ProjectHeader — top of every project page, on graph paper with axes.
+ * Left: path, label, title, summary, spec table. Right: the project's own illustration
+ * (passed in the "art" slot) in the project color.
+ */
+import type { CollectionEntry } from "astro:content";
+import Axes from "./Axes.astro";
+import SpecTable from "./SpecTable.astro";
+import Label from "../ui/Label.astro";
+import { site } from "../../config/site";
+import { repoUrl } from "../../lib/format";
+
+interface Props {
+  project: CollectionEntry<"projects">;
+  /** Position in the list, shown as "PROJECT 03 —". */
+  index: number;
+}
+const { project, index } = Astro.props;
+const p = project.data;
+const where = p.course ? `${p.course.code} @ ${p.course.institution.replace(" Belgrade", "")}` : p.context;
+const hasArt = Astro.slots.has("art");
+---
+
+<header class="ph paper">
+  <Axes />
+  <div class:list={["wrap", "ph__grid", { "ph__grid--art": hasArt }]}>
+    <div class="ph__text">
+      <p class="ph__crumb t-meta">~/{site.handle}/projects/<b>{project.id}</b>/README.md</p>
+      <Label index={`PROJECT ${String(index).padStart(2, "0")} —`}>{p.category}{where && ` · ${where}`}</Label>
+      <h1 class="ph__title t-display-l">{p.title}</h1>
+      <p class="ph__lede">{p.summary}</p>
+      <SpecTable project={p} />
+      {p.repo && p.spec && <a class="ph__repo t-meta" href={repoUrl(p.repo)} rel="noopener">{p.repo} ↗</a>}
+    </div>
+    {hasArt && <div class="ph__art"><slot name="art" /></div>}
+  </div>
+</header>
+
+<style>
+  .ph { position: relative; overflow: hidden; border-block: 1px solid var(--line); }
+  .ph__grid { position: relative; padding-block: 64px 44px; padding-left: 72px; }
+  .ph__grid--art { display: grid; grid-template-columns: minmax(0, 1fr) 400px; gap: 40px; align-items: center; }
+  .ph__crumb { color: var(--ink-faint); margin-bottom: 18px; overflow-wrap: anywhere; }
+  .ph__crumb b { color: var(--ink); font-weight: 500; }
+  .ph__title { margin: 8px 0 12px; }
+  .ph__lede { font-size: 18px; line-height: 30px; color: var(--ink-muted); margin-bottom: 24px; max-width: 60ch; }
+  .ph__repo { display: inline-block; margin-top: 10px; color: var(--accent); }
+  .ph__art { min-width: 0; }
+
+  @container screen (max-width: 900px) {
+    .ph__grid--art { grid-template-columns: minmax(0, 1fr); }
+  }
+  @container screen (max-width: 640px) {
+    .ph__grid { padding-block: 52px 28px; padding-left: 44px; padding-right: 20px; }
+    .ph__title { font-size: 32px; line-height: 38px; }
+    .ph__lede { font-size: 16px; line-height: 26px; }
+  }
+</style>

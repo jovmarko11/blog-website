@@ -1,0 +1,76 @@
+---
+/**
+ * CodeBlock — highlighted code with IDE chrome: file tab, line numbers, highlighted lines.
+ *   <CodeBlock file="src/Parser/Tokenizer.cpp" lang="cpp" start={12} highlight={[3, 4]} code={`…`} />
+ * Colors come from design tokens (syn-*) via Shiki's CSS-variables theme.
+ * Highlighted lines use the project color (--project).
+ */
+import { codeToHtml } from "shiki";
+import { cssVariablesTheme } from "../../lib/shiki";
+
+interface Props {
+  code: string;
+  lang?: string;
+  /** Path shown in the tab; the last segment is the tab label. */
+  file?: string;
+  /** Right side of the tab bar, e.g. "C++ · simplified". */
+  meta?: string;
+  /** Number of the first line (to match the repository). */
+  start?: number;
+  /** Line numbers (relative to `start`) the prose talks about. */
+  highlight?: number[];
+}
+const { code, lang = "cpp", file, meta, start = 1, highlight = [] } = Astro.props;
+
+const html = await codeToHtml(code.replace(/^\n+|\s+$/g, ""), {
+  lang,
+  theme: cssVariablesTheme,
+  transformers: [
+    {
+      line(node, line) {
+        if (highlight.includes(line + start - 1)) this.addClassToHast(node, "is-hl");
+      },
+    },
+  ],
+});
+const tab = file?.split("/").pop();
+---
+
+<div class="code">
+  {(tab || meta) && (
+    <div class="code__bar">
+      {tab && <span class="code__tab" title={file}>{tab}</span>}
+      {meta && <span class="code__meta">{meta}</span>}
+    </div>
+  )}
+  <div class="code__body" style={`counter-reset: ln ${start - 1}`} set:html={html} />
+</div>
+
+<style>
+  .code { background: var(--surface-sunken); border: 1px solid var(--line); border-radius: var(--radius-m); overflow: hidden; }
+  .code__bar { display: flex; align-items: stretch; border-bottom: 1px solid var(--code-line); font-family: var(--font-mono); font-size: 12px; color: var(--code-muted); }
+  .code__tab { padding: 8px 14px; border-right: 1px solid var(--code-line); color: var(--code-ink); box-shadow: inset 0 -2px 0 var(--project, var(--syn-keyword)); }
+  .code__meta { margin-left: auto; padding: 8px 14px; }
+  .code__body { overflow-x: auto; }
+  .code__body :global(pre) { margin: 0; padding: 12px 0; background: transparent !important; font-size: 14px; line-height: 22px; }
+  .code__body :global(code) { display: block; min-width: max-content; }
+  .code__body :global(.line) { display: inline-block; width: 100%; padding-right: 16px; }
+  .code__body :global(.line)::before {
+    counter-increment: ln;
+    content: counter(ln);
+    display: inline-block;
+    width: 3.2em;
+    padding-right: 1.1em;
+    margin-right: 1em;
+    text-align: right;
+    color: var(--code-muted);
+    border-right: 1px solid var(--code-line);
+  }
+  .code__body :global(.line.is-hl) { background: var(--project-code-hl, var(--code-highlight)); }
+  .code__body :global(.line.is-hl)::before { color: var(--project-on-dark, var(--syn-keyword)); }
+  @container screen (max-width: 640px) {
+    .code { margin-inline: -20px; border-radius: 0; border-inline: 0; }
+    .code__body :global(pre) { font-size: 12.5px; line-height: 20px; }
+    .code__body :global(.line)::before { width: 2.4em; padding-right: 0.8em; margin-right: 0.8em; }
+  }
+</style>

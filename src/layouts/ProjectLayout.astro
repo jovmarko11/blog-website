@@ -1,0 +1,72 @@
+---
+/**
+ * ProjectLayout — one project write-up:
+ * ProjectHeader (+ the project's own art) → [ Toc | article ] → pager.
+ * Sets --project / --project-soft from the project's `hue` for everything inside.
+ */
+import type { CollectionEntry } from "astro:content";
+import BaseLayout from "./BaseLayout.astro";
+import ProjectHeader from "../components/project/ProjectHeader.astro";
+import Toc from "../components/project/Toc.astro";
+import ProjectPager from "../components/project/ProjectPager.astro";
+import { PROJECT_ART } from "../components/project-art";
+
+interface Props {
+  project: CollectionEntry<"projects">;
+  index: number;
+  headings: { depth: number; slug: string; text: string }[];
+  prev?: CollectionEntry<"projects">;
+  next?: CollectionEntry<"projects">;
+}
+const { project, index, headings, prev, next } = Astro.props;
+const { hue, art, title, summary } = project.data;
+
+const projectVars = [
+  `--project: var(--hue-${hue})`,
+  `--project-soft: var(--hue-${hue}-soft)`,
+  `--project-on-dark: var(--hue-${hue}-dark)`,
+  `--project-code-hl: var(--hue-${hue}-soft-dark)`,
+].join("; ");
+
+const artEntry = art ? PROJECT_ART[art] : undefined;
+const Art = artEntry?.component;
+---
+
+<BaseLayout title={title} description={summary}>
+  <div class="project" style={projectVars}>
+    <ProjectHeader project={project} index={index}>
+      {Art && <Art slot="art" {...artEntry?.props} />}
+    </ProjectHeader>
+
+    <div class="wrap project__body">
+      <Toc slug={project.id} headings={headings} />
+      <article class="prose">
+        <slot />
+        <ProjectPager prev={prev} next={next} />
+      </article>
+    </div>
+  </div>
+</BaseLayout>
+
+<style>
+  .project__body { display: grid; grid-template-columns: 200px minmax(0, var(--content-width)); gap: 64px; justify-content: center; padding-top: 8px; }
+
+  /* Article typography (MDX output). */
+  .prose :global(p) { font-size: 18px; line-height: 30px; color: var(--ink-muted); margin-top: 16px; max-width: var(--measure); }
+  .prose :global(p strong) { color: var(--ink); font-weight: 600; }
+  .prose :global(p a), .prose :global(li a) { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: color-mix(in srgb, var(--accent) 45%, transparent); }
+  .prose :global(ul) { margin-top: 16px; padding: 0; list-style: none; font-size: 17px; line-height: 28px; color: var(--ink-muted); }
+  .prose :global(ul li) { position: relative; padding-left: 24px; margin-bottom: 8px; }
+  .prose :global(ul li)::before { content: "→"; position: absolute; left: 0; color: var(--accent); font-family: var(--font-mono); }
+  .prose :global(ul li strong) { color: var(--ink); }
+  .prose :global(.code), .prose :global(.term), .prose :global(.note), .prose :global(.figure) { margin-top: 24px; }
+  .prose > :global(h2:first-child) { margin-top: 40px; }
+
+  @container screen (max-width: 900px) {
+    .project__body { grid-template-columns: minmax(0, 1fr); gap: 0; padding-top: 32px; }
+  }
+  @container screen (max-width: 640px) {
+    .prose :global(p) { font-size: 17px; line-height: 28px; }
+    .prose :global(ul) { font-size: 16px; line-height: 26px; }
+  }
+</style>

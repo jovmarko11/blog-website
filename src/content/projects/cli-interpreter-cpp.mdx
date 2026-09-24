@@ -1,0 +1,200 @@
+---
+title: "A shell in C++, one layer at a time"
+summary: "A command-line interpreter with pipes, redirection and 18 built-in commands, designed around a parser that works in layers."
+repo: jovmarko11/cli-interpreter-cpp
+category: systems
+stack: [C++14, CMake, OOP]
+status: shipped
+period: { start: "2025-12", end: "2026-02" }
+course: { code: OOP1, name: "Object-Oriented Programming 1", year: 2026 }
+spec: { label: Commands, value: "18 built-ins" }
+plot: { x: 0.2, y: 0.3 }
+hue: cyan
+art: parse-layers
+featured: true
+---
+
+## Idea
+
+### What does a shell actually do?
+
+I type things like `time | tr -":" "." | wc -c > out.txt` without thinking about it. The final project for
+Object-Oriented Programming 1 at ETF was a small command-line interpreter, and I used it to answer one
+question: **what happens between pressing Enter and seeing the output?**
+
+The assignment defined a basic set of commands and the rules for pipes and redirection. Everything beyond
+that was my own call. I added the commands in `src/new/` (`copy`, `tail`, `history`, `last`, `help`, `exec`,
+`dump`), and I moved every special character into a `Syntax` object, which the assignment never asked for.
+The goal was code that is **modular, properly decomposed into objects and algorithmically simple**: no
+clever tricks, just small classes that each do one thing.
+
+## Architecture
+
+### A line goes through five layers
+
+<Figure n="01" caption='<code>time | tr -":" "." | wc -c &gt; out.txt</code> on its way through the parser. Each layer knows only its own job and throws only its own kind of error.'>
+  <ParseLayers />
+</Figure>
+
+- **Tokenizer** splits the raw line into tokens and remembers which ones were quoted. An unexpected
+  character is a *lexical* error, reported with a `^` under the exact position.
+- **PipelineParser** cuts the token stream at every unquoted `|`. Two pipes in a row leave an empty
+  segment, which is a *syntax* error.
+- **RedirectionParser** peels `<`, `>` and `>>` off the end of each segment. A redirection in the middle
+  of a command is rejected here.
+- **CommandParser** looks the command up in the `CommandRegistry` and hands its tokens to the right
+  derived parser: `SimpleCommandParser`, `OptionCommandParser` or `TrCommandParser`, because `tr` has a
+  syntax of its own.
+- **Engine** turns the resulting `ParsedPipeline` into running commands. `StreamResolver` decides where
+  each command reads from and writes to (console, file, quoted string or pipe), and `PipeFlowController`
+  puts a `PipeStream` between every two neighbours.
+
+Errors come in six categories (`Lexical`, `UnknownCommand`, `Syntax`, `StreamSemantic`,
+`CommandSemantic`, `System`), and each one is thrown by the only layer that can name it.
+
+## Implementation
+
+### The parts I'm most happy with
+
+The tokenizer is a loop of small, single-purpose recognisers. Each one either consumes something at the
+current position and returns `true`, or leaves the position alone:
+
+<CodeBlock file="src/Parser/Tokenizer.cpp" meta="C++" start={7} highlight={[21, 23, 25, 27, 29]} code={`
+TokenizeResult Tokenizer::tokenize(const std::string &line) const {
+    checkForLexicalErrors(line);
+
+    TokenizeResult result;
+
+    std::size_t pos = 0;
+    const std::size_t n = line.size();
+
+    while (pos < n) {
+        // preskakanje razmaka
+        skipWhitespace(line, pos);
+        if (pos >= n) break;
+
+        // Pipe - poseban token ako je | van navodnika
+        if (parsePipe(line, pos, result)) continue;
+
+        if (parseRedir(line, pos, result)) continue;
+
+        if (parseDashQuoted(line, pos, result)) continue;
+
+        if (parseQuoted(line, pos, result)) continue;
+
+        parseWord(line, pos, result);
+    }
+`} />
+
+None of those recognisers hard-codes a character. They all ask a `Syntax` object, so the whole grammar of
+special symbols lives in one struct:
+
+<CodeBlock file="src/Parser/Syntax.h" meta="C++" start={9} code={`
+struct Syntax {
+    char pipe = '|';
+    char quote = '"';
+    char dash = '-';
+    char redirIn = '<';
+    char redirOut = '>';
+    std::string redirAppend = ">>";
+`} />
+
+Every command is one entry in the `CommandRegistry`: its name, its parser, a factory that builds it, and
+six flags describing what it is allowed to do (`requiresArgument`, `acceptsArgument`, `requiresOption`,
+`hasInput`, `hasOutput`, `takesSourceArgument`). `time` has no input, so the engine can reject
+`echo "x" | time` without a single `if` about `time` anywhere in its code.
+
+<CodeBlock file="src/Factory/CommandRegistry.cpp" meta="C++" start={5} highlight={[6, 7]} code={`
+CommandRegistry::CommandRegistry() {
+    registerCommand("time", new SimpleCommandParser(), createTime,
+        false,false,false,false,true,false);
+
+    registerCommand("date", new SimpleCommandParser(), createDate,
+        false,false,false,false,true,false);
+
+    registerCommand("echo", new SimpleCommandParser(), createEcho,
+        false,true,false,true,true,true);
+
+    registerCommand("prompt", new SimpleCommandParser(), createPrompt,
+        true,true,false,true,true,false);
+
+    registerCommand("wc", new OptionCommandParser(), createWc,
+        false,true,true,true,true,true);
+`} />
+
+A pipe turned out to be the simplest class in the project: an object that is both an `OutputStream` for
+the command on its left and an `InputStream` for the command on its right.
+
+<CodeBlock file="src/Pipeline/PipeStream.h" meta="C++" start={12} code={`
+class PipeStream : public InputStream, public OutputStream {
+public:
+    /// OutputStream deo
+    void write(const std::string& str) override     {   m_buffer += str;    }
+    void write(char c) override     {   m_buffer.push_back(c);  }
+    void writeLine(const std::string& str) override      {   m_buffer += str; m_buffer.push_back('\\n');     }
+
+    /// InputStream deo
+    int get() override;
+
+    bool eof() const override   {   return m_pos >= m_buffer.size();    }
+`} />
+
+The engine then only has to decide, for each command in the pipeline, which stream is its default input
+and output. The first command reads from the console, the last one writes to it, and everything in
+between talks through pipes:
+
+<CodeBlock file="src/Engine/Engine.cpp" meta="C++" start={50} highlight={[56, 57]} code={`
+        bool first = (i == 0);
+        bool last  = (i == count - 1);
+
+        validatePipelinePosition(spec, *info, first, last);
+
+        // Odredjivanje default tokova
+        InputStream&  defaultIn  = first ? ctx.defaultIn : *links[i].pipeIn;
+        OutputStream& defaultOut = last  ? ctx.defaultOut : *links[i].pipeOut;
+
+        bool inputFromPipe = !first;
+
+        executeCommand(spec, ctx, inputFromPipe, defaultIn, defaultOut);
+`} />
+
+<Note>
+A command never knows where its data comes from. `wc` reads from an `InputStream` and writes to an
+`OutputStream`; whether that is the keyboard, a file, a quoted string or the previous command is decided
+by the engine before `execute()` is ever called.
+</Note>
+
+## Results
+
+### It behaves like a shell
+
+<Terminal lines={[
+  { cmd: 'echo "one two three" | wc -w', out: "3" },
+  { cmd: 'time | tr -":" "." | wc -c > out.txt' },
+  { cmd: 'tr notes.txt -"o" "0"', out: "hell0 w0rld\nf00 bar baz" },
+  { cmd: 'echo "hi" @', out: 'Lexical Error: unexpected characters:\necho "hi" @\n          ^', error: true },
+  { cmd: 'echo "x" | | wc', out: "Syntax error: empty command between pipes", error: true },
+  { cmd: 'echo "x" | time', out: "Command time cannot receive input from pipe", error: true },
+  { cmd: "foo", out: "Unknown command: foo", error: true },
+]} />
+
+Every error above comes from a different layer: the tokenizer finds `@`, the pipeline parser finds the
+empty segment, the engine finds that `time` cannot read from a pipe, and the registry does not know `foo`.
+
+## Lessons
+
+### What I'd tell myself at the first commit
+
+- **Parse first, execute later.** Having a complete `ParsedPipeline` before anything runs means an error
+  is always reported by the layer that understands it, and nothing half-executes.
+- **Describe commands with data, not with `if` chains.** The registry flags and the `Syntax` object made
+  new commands and new rules a one-line change.
+- **Streams are the real abstraction.** Once console, file, string and pipe were all just streams, pipes
+  and redirection stopped being special cases.
+
+<Note kind="wrong">
+The hardest change was `batch`, which reads commands from a file and runs them as if they were typed. It
+needed a completely new execution context with its own input and output, and because the engine was built
+around a single global one, adding it meant reworking a large part of the engine. That is where
+`ExecContext` came from, and I would design it on day one next time.
+</Note>

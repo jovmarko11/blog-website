@@ -1,0 +1,30 @@
+---
+/**
+ * Figure — numbered figure with a caption that says what to notice.
+ *   <Figure n="01" caption="What the reader should see.">…any visual…</Figure>
+ */
+interface Props {
+  n: string;
+  caption: string;
+  /** Prefix of the number: FIG., TABLE, VID. */
+  kind?: string;
+}
+const { n, caption, kind = "FIG." } = Astro.props;
+---
+
+<figure class="figure">
+  <div class="figure__body"><slot /></div>
+  <figcaption class="figure__cap">
+    <span class="t-label figure__n"><span class="figure__kind">{kind}</span>{n}</span>
+    <span set:html={caption} />
+  </figcaption>
+</figure>
+
+<style>
+  .figure { margin: 0; }
+  .figure__cap { display: flex; gap: 12px; align-items: baseline; margin-top: 10px; font-size: 14px; line-height: 22px; color: var(--ink-muted); }
+  .figure__n { color: var(--accent); white-space: nowrap; }
+  .figure__kind { color: var(--ink-faint); font-weight: 500; margin-right: 0.5em; }
+  .figure__cap :global(code) { font-family: var(--font-mono); font-size: 0.9em; color: var(--ink); }
+  @container screen (max-width: 640px) { .figure__cap { flex-direction: column; gap: 4px; } }
+</style>

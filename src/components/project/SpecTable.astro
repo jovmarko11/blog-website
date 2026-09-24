@@ -1,0 +1,37 @@
+---
+/**
+ * SpecTable — the four facts under a project title: Stack · Status · Period · (Spec or Repo).
+ */
+import type { CollectionEntry } from "astro:content";
+import { formatPeriod, repoUrl } from "../../lib/format";
+
+interface Props { project: CollectionEntry<"projects">["data"]; }
+const { project: p } = Astro.props;
+const statusLabel = { shipped: "shipped", "in-progress": "in progress", lost: "lost" }[p.status];
+---
+
+<dl class="spec">
+  <div><dt>Stack</dt><dd>{p.stack.join(" · ")}</dd></div>
+  <div><dt>Status</dt><dd class={`spec__status spec__status--${p.status}`}>● {statusLabel}</dd></div>
+  <div><dt>Period</dt><dd>{formatPeriod(p.period, p.status)}</dd></div>
+  {p.spec
+    ? <div><dt>{p.spec.label}</dt><dd>{p.spec.value}</dd></div>
+    : p.repo && <div><dt>Repo</dt><dd><a href={repoUrl(p.repo)} rel="noopener">{p.repo} ↗</a></dd></div>}
+</dl>
+
+<style>
+  .spec { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border: 1px solid var(--line-strong); background: var(--surface); margin: 0; }
+  .spec > div { padding: 10px 14px; border-right: 1px solid var(--line); min-width: 0; }
+  .spec > div:last-child { border-right: 0; }
+  dt { font-family: var(--font-mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint); margin-bottom: 4px; }
+  dd { margin: 0; font-family: var(--font-mono); font-size: 13px; color: var(--ink); overflow-wrap: anywhere; }
+  .spec__status--shipped { color: var(--success); }
+  .spec__status--in-progress { color: var(--warning); }
+  .spec__status--lost { color: var(--danger); }
+  @container screen (max-width: 640px) {
+    .spec { grid-template-columns: 1fr 1fr; }
+    .spec > div { border-bottom: 1px solid var(--line); }
+    .spec > div:nth-child(2n) { border-right: 0; }
+    .spec > div:nth-last-child(-n + 2) { border-bottom: 0; }
+  }
+</style>

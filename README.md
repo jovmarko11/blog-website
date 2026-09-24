@@ -23,14 +23,32 @@ src/
     generated/              tokens.css + typography.css (GENERATED, don't edit)
     base.css                reset, element defaults, utilities (.screen, .wrap, .paper)
     global.css              imports all of the above; loaded once by BaseLayout
-  layouts/BaseLayout.astro  <head>, theme, NavBar, <main>, StatusBar
+  content.config.ts         registers the "projects" collection
+  content/
+    schema.ts               front-matter schema + allowed values (CATEGORIES, STATUSES, HUES, ARTS)
+    projects/*.mdx          one write-up per repository (file name = URL)
+  lib/                      pure helpers: projects.ts (read collection), format.ts, shiki.ts
+  layouts/
+    BaseLayout.astro        <head>, theme, NavBar, <main>, StatusBar
+    ProjectLayout.astro     ProjectHeader + Toc + article + pager; sets --project from `hue`
   components/
     brand/                  Logo, Cursor
     layout/                 NavBar, StatusBar, ThemeToggle, Paper
     ui/                     Label, Tag, Button, Kbd, TerminalHeading
-  pages/                    one file = one route (index, styleguide, …)
+    project/                ProjectHeader, Axes, SpecTable, Toc, SectionHeading/Title, ProjectPager, sections.ts
+    content/                used inside .mdx: CodeBlock, Note, Figure, Terminal
+    project-art/            per-project header illustrations (ParseLayers) + registry
+  pages/                    one file = one route (index, styleguide, projects/[slug], …)
 public/                     static files served as-is (favicon.svg, cv.pdf)
 ```
+
+## Writing a project
+
+1. Create `src/content/projects/<repo-name>.mdx` with the front-matter from `src/content/schema.ts`.
+2. Write five sections as `## Idea`, `## Architecture`, `## Implementation`, `## Results`, `## Lessons`,
+   each followed by a human title as `### …`. Numbers and terminal commands are added automatically.
+3. Use `<CodeBlock>`, `<Note>`, `<Figure>`, `<Terminal>` directly — no imports needed.
+4. Pick a `hue` (project color). It is used only for the project's own content, never for UI.
 
 ## Conventions
 

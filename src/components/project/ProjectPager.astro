@@ -1,0 +1,27 @@
+---
+/** ProjectPager — links to the previous (newer) and next (older) project. */
+import type { CollectionEntry } from "astro:content";
+
+interface Props {
+  prev?: CollectionEntry<"projects">;
+  next?: CollectionEntry<"projects">;
+}
+const { prev, next } = Astro.props;
+---
+
+{(prev || next) && (
+  <nav class="pager" aria-label="More projects">
+    {prev ? <a href={`/projects/${prev.id}/`}><small>← newer</small><span>{prev.data.title}</span></a> : <span />}
+    {next ? <a class="pager__next" href={`/projects/${next.id}/`}><small>older →</small><span>{next.data.title}</span></a> : <span />}
+  </nav>
+)}
+
+<style>
+  .pager { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 56px; }
+  a { display: block; border: 1px solid var(--line); border-radius: var(--radius-m); padding: 16px 18px; background: var(--surface); transition: border-color 0.15s; }
+  a:hover { border-color: var(--accent); }
+  small { display: block; font-family: var(--font-mono); font-size: 12px; color: var(--ink-faint); margin-bottom: 4px; }
+  span { font-weight: 700; color: var(--ink); }
+  .pager__next { text-align: right; }
+  @container screen (max-width: 640px) { .pager { grid-template-columns: 1fr; } }
+</style>

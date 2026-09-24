@@ -1,0 +1,148 @@
+---
+/**
+ * ParseLayers — looping animation of one command line travelling through the
+ * CLI interpreter's layers: raw line → Tokenizer → PipelineParser → RedirectionParser
+ * → CommandParser (derived parsers) → Engine.
+ *
+ *   <ParseLayers />                 full version (Architecture section)
+ *   <ParseLayers variant="compact"/> first four layers, for the ProjectHeader
+ *
+ * Pure CSS: each row fades in on its own keyframes, the matching layer label lights up
+ * in the project color. With prefers-reduced-motion everything is shown at once.
+ * The data below mirrors what the real C++ code produces for this line.
+ */
+interface Props { variant?: "full" | "compact"; }
+const { variant = "full" } = Astro.props;
+const compact = variant === "compact";
+
+type Tok = { t: string; q?: boolean; op?: boolean };
+const tokens: Tok[] = [
+  { t: "time" }, { t: "|", op: true }, { t: "tr" }, { t: "-", op: true }, { t: ":", q: true }, { t: ".", q: true },
+  { t: "|", op: true }, { t: "wc" }, { t: "-c" }, { t: ">", op: true }, { t: "out.txt" },
+];
+const segments: Tok[][] = [
+  [{ t: "time" }],
+  [{ t: "tr" }, { t: "-", op: true }, { t: ":", q: true }, { t: ".", q: true }],
+  [{ t: "wc" }, { t: "-c" }, { t: ">", op: true }, { t: "out.txt" }],
+];
+const parsed = [
+  { parser: "SimpleCommandParser", body: 'name: "time"' },
+  { parser: "TrCommandParser", body: 'name: "tr", args: [":", "."]' },
+  { parser: "OptionCommandParser", body: 'name: "wc", option: "c"' },
+];
+
+const rows = [
+  { layer: "input", note: "raw line" },
+  { layer: "Tokenizer", note: "lexical" },
+  { layer: "PipelineParser", note: "syntax" },
+  { layer: "RedirectionParser", note: "syntax" },
+  { layer: "CommandParser", note: "unknown cmd" },
+  { layer: "Engine", note: "semantic · system" },
+].slice(0, compact ? 4 : 6);
+
+/* ---- timeline: one set of keyframes per row ---- */
+const n = rows.length;
+const cycle = compact ? 11 : 17; // seconds
+const step = compact ? 18 : 13.5; // % of the cycle between rows
+const hold = 88; // % where everything starts fading out
+const fade = 94;
+const p = variant === "compact" ? "plc" : "plf";
+let keyframes = "";
+for (let i = 0; i < n; i++) {
+  const s = i * step;
+  const on = s + 2.5;
+  const nextStart = i < n - 1 ? (i + 1) * step : hold;
+  keyframes += `@keyframes ${p}-row-${i}{0%{opacity:0;transform:translateY(4px)}${s > 0 ? `${s}%{opacity:0;transform:translateY(4px)}` : ""}${on}%{opacity:1;transform:none}${hold}%{opacity:1;transform:none}${fade}%,100%{opacity:0}}`;
+  keyframes += `@keyframes ${p}-lab-${i}{0%${s > 0 ? `,${s}%` : ""}{color:var(--ink-faint);background:transparent}${on}%,${nextStart}%{color:var(--project);background:var(--project-soft)}${nextStart + 2}%,100%{color:var(--ink-muted);background:transparent}}`;
+}
+const rowStyle = (i: number) => `animation: ${p}-row-${i} ${cycle}s linear infinite`;
+const labStyle = (i: number) => `animation: ${p}-lab-${i} ${cycle}s linear infinite`;
+---
+
+<div class:list={["pl", { "pl--compact": compact }]} role="img"
+  aria-label='The line time | tr -":" "." | wc -c > out.txt passes through Tokenizer, PipelineParser, RedirectionParser, CommandParser and Engine.'>
+  <Fragment set:html={`<style>${keyframes}</style>`} />
+  {rows.map((r, i) => (
+    <div class="pl__row" style={rowStyle(i)}>
+      <div class="pl__label" style={labStyle(i)}>
+        <span class="pl__n">{String(i).padStart(2, "0")}</span>
+        <span class="pl__layer">{r.layer}</span>
+        {!compact && <span class="pl__note">{r.note}</span>}
+      </div>
+      <div class="pl__stage">
+        {i === 0 && <code class="pl__line"><span class="pl__sign">$</span> time | tr -":" "." | wc -c &gt; out.txt</code>}
+        {i === 1 && tokens.map((t) => <span class:list={["pl__tok", { "is-q": t.q, "is-op": t.op }]}>{t.q ? `"${t.t}"` : t.t}</span>)}
+        {i === 2 && segments.map((seg, k) => (
+          <>
+            {k > 0 && <span class="pl__pipe">|</span>}
+            <span class="pl__seg">{seg.map((t) => <span class:list={["pl__tok", { "is-q": t.q, "is-op": t.op }]}>{t.q ? `"${t.t}"` : t.t}</span>)}</span>
+          </>
+        ))}
+        {i === 3 && (
+          <>
+            <span class="pl__seg pl__seg--dim"><span class="pl__tok">time</span></span>
+            <span class="pl__seg pl__seg--dim"><span class="pl__tok">tr</span><span class="pl__tok is-op">-</span><span class="pl__tok is-q">":"</span><span class="pl__tok is-q">"."</span></span>
+            <span class="pl__seg"><span class="pl__tok">wc</span><span class="pl__tok">-c</span></span>
+            <span class="pl__redir">out → out.txt · truncate</span>
+          </>
+        )}
+        {i === 4 && parsed.map((c) => (
+          <span class="pl__card"><span class="pl__card-p">{c.parser}</span><span class="pl__card-b">{`{ ${c.body} }`}</span></span>
+        ))}
+        {i === 5 && (
+          <>
+            <span class="pl__node">time</span><span class="pl__arrow">PipeStream →</span>
+            <span class="pl__node">tr</span><span class="pl__arrow">PipeStream →</span>
+            <span class="pl__node">wc</span><span class="pl__arrow">&gt;</span>
+            <span class="pl__node pl__node--out">out.txt: 9</span>
+          </>
+        )}
+      </div>
+    </div>
+  ))}
+</div>
+
+<style>
+  .pl {
+    display: flex; flex-direction: column; gap: 6px;
+    padding: 16px; border: 1px solid var(--line-strong); background: var(--bg);
+    font-family: var(--font-mono); font-size: 12px; line-height: 18px;
+  }
+  .pl__row { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 16px; align-items: center; min-height: 40px; opacity: 0; }
+  .pl__label { display: flex; align-items: baseline; gap: 8px; padding: 6px 10px; border-radius: var(--radius-s); color: var(--ink-faint); }
+  .pl__n { opacity: 0.7; }
+  .pl__layer { font-weight: 700; }
+  .pl__note { margin-left: auto; font-size: 11px; opacity: 0.8; }
+  .pl__stage { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+
+  .pl__line { color: var(--ink); white-space: nowrap; }
+  .pl__sign { color: var(--accent); }
+  .pl__tok { padding: 2px 7px; border: 1px solid var(--line-strong); border-radius: var(--radius-s); background: var(--surface); color: var(--ink); white-space: nowrap; }
+  .pl__tok.is-op { color: var(--project); border-color: var(--project); }
+  .pl__tok.is-q { background: var(--project-soft); border-style: dashed; border-color: var(--project); color: var(--ink); }
+  .pl__seg { display: inline-flex; gap: 4px; padding: 4px; border: 1px dashed var(--project); border-radius: var(--radius-s); }
+  .pl__seg--dim { opacity: 0.45; }
+  .pl__pipe { color: var(--project); font-weight: 700; }
+  .pl__redir { padding: 2px 8px; border-radius: var(--radius-s); background: var(--project); color: var(--bg); font-weight: 600; white-space: nowrap; }
+  .pl__card { display: inline-flex; flex-direction: column; padding: 4px 8px; border: 1px solid var(--line-strong); border-radius: var(--radius-s); background: var(--surface); }
+  .pl__card-p { color: var(--project); font-size: 11px; }
+  .pl__card-b { color: var(--ink); white-space: nowrap; }
+  .pl__node { padding: 2px 8px; border: 1px solid var(--line-strong); border-radius: var(--radius-s); background: var(--surface); color: var(--ink); }
+  .pl__node--out { border-color: var(--project); color: var(--project); }
+  .pl__arrow { color: var(--project); }
+
+  /* compact: header illustration */
+  .pl--compact { gap: 10px; padding: 14px; background: color-mix(in srgb, var(--bg) 85%, transparent); }
+  .pl--compact .pl__row { grid-template-columns: 1fr; gap: 4px; min-height: 0; }
+  .pl--compact .pl__label { padding: 2px 6px; align-self: start; justify-self: start; }
+  .pl--compact .pl__line { font-size: 12px; }
+
+  @container screen (max-width: 640px) {
+    .pl__row { grid-template-columns: 1fr; gap: 4px; }
+    .pl__label { justify-self: start; }
+    .pl:not(.pl--compact) .pl__stage { overflow-x: auto; flex-wrap: nowrap; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pl__row, .pl__label { animation: none !important; opacity: 1; }
+  }
+</style>

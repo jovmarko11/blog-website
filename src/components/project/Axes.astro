@@ -1,0 +1,32 @@
+---
+/**
+ * Axes — screen-space coordinate axes drawn over graph paper (the brand signature).
+ * Origin top-left like in computer graphics: x → right, y ↓ down, ticks every 120px.
+ * Place it as the first child of a `position: relative` container; it never blocks clicks.
+ */
+interface Props {
+  /** How far to draw ticks (px). Anything beyond the container is clipped. */
+  width?: number;
+  height?: number;
+}
+const { width = 1600, height = 600 } = Astro.props;
+const o = 24;
+const xs = Array.from({ length: Math.floor((width - o) / 120) }, (_, i) => o + 120 * (i + 1));
+const ys = Array.from({ length: Math.floor((height - o) / 120) }, (_, i) => o + 120 * (i + 1));
+---
+
+<svg class="axes" aria-hidden="true">
+  <line x1={o} y1={o} x2="100%" y2={o} />
+  <line x1={o} y1={o} x2={o} y2="100%" />
+  <text x={o + 6} y={o + 16}>(0,0)</text>
+  {xs.map((x) => (<><line x1={x} y1={o - 4} x2={x} y2={o + 4} /><text x={x + 4} y={o - 8}>{x - o}</text></>))}
+  {ys.map((y) => (<><line x1={o - 4} y1={y} x2={o + 4} y2={y} /><text class="axes__y" x={o + 8} y={y + 4}>{y - o}</text></>))}
+  <text x="99%" y={o + 16} text-anchor="end">x →</text>
+</svg>
+
+<style>
+  .axes { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: hidden; }
+  line { stroke: var(--control-border); stroke-width: 1; }
+  text { fill: var(--ink-faint); font-family: var(--font-mono); font-size: 11px; }
+  @container screen (max-width: 640px) { .axes__y { display: none; } }
+</style>

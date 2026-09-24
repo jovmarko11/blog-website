@@ -1,0 +1,59 @@
+---
+/**
+ * Toc — the article's sections as a file tree ("01 idea.md").
+ * Built from the MDX's level-2 headings. On phones it collapses to the active section.
+ */
+import { sectionExt } from "./sections";
+
+interface Props {
+  slug: string;
+  headings: { depth: number; slug: string; text: string }[];
+}
+const { slug, headings } = Astro.props;
+const items = headings.filter((h) => h.depth === 2);
+---
+
+<nav class="toc" aria-label="Sections">
+  <p class="toc__head">~/{slug}/</p>
+  <ol role="list">
+    {items.map((h, i) => (
+      <li><a href={`#${h.slug}`} data-toc={h.slug}>{String(i + 1).padStart(2, "0")} {h.slug}<span class="toc__ext">{sectionExt(h.slug)}</span></a></li>
+    ))}
+  </ol>
+</nav>
+
+<script>
+  // Highlight the section currently on screen.
+  const links = new Map<string, HTMLElement>();
+  document.querySelectorAll<HTMLElement>("[data-toc]").forEach((a) => links.set(a.dataset.toc!, a));
+  const observer = new IntersectionObserver(
+    (entries) => {
+      for (const e of entries) {
+        if (!e.isIntersecting) continue;
+        links.forEach((a) => a.classList.remove("is-active"));
+        links.get(e.target.id)?.classList.add("is-active");
+      }
+    },
+    { rootMargin: "0px 0px -70% 0px" },
+  );
+  links.forEach((_, id) => { const el = document.getElementById(id); if (el) observer.observe(el); });
+</script>
+
+<style>
+  .toc { position: sticky; top: 24px; align-self: start; font-family: var(--font-mono); font-size: 13px; line-height: 20px; }
+  .toc__head { color: var(--ink-faint); margin-bottom: 10px; }
+  ol { padding: 0 0 0 10px; border-left: 1px solid var(--line-strong); }
+  li { position: relative; padding: 4px 0 4px 12px; }
+  li::before { content: "├─"; position: absolute; left: -11px; color: var(--line-strong); letter-spacing: -2px; }
+  a { color: var(--ink-muted); }
+  a:hover { color: var(--ink); }
+  a:global(.is-active) { color: var(--accent); }
+  .toc__ext { color: var(--ink-faint); }
+
+  @container screen (max-width: 900px) {
+    .toc { position: static; margin-bottom: 32px; }
+    ol { display: flex; flex-wrap: wrap; gap: 4px 16px; border: 0; padding: 0; }
+    li { padding: 0; }
+    li::before { content: none; }
+  }
+</style>

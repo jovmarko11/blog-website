@@ -18,7 +18,7 @@ const year = new Date().getFullYear();
 <footer class="status">
   <span class="status__branch">⎇ main</span>
   {error ? <span class="status__error">✕ {error}</span> : <span>✓ 0 errors</span>}
-  {projects !== undefined && <span>{projects} projects</span>}
+  {projects !== undefined && <span>{projects} {projects === 1 ? "project" : "projects"}</span>}
   <span class="status__push">{site.location.coords}</span>
   <span>UTF-8</span>
   <span>© {year} {site.name}</span>
