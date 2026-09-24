@@ -75,8 +75,10 @@ const hash = (s: string) => {
   @keyframes ping { 0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 60%, transparent); } 100% { box-shadow: 0 0 0 10px transparent; } }
 
   @media (prefers-reduced-motion: no-preference) {
-    :global(.js) .commit__title, :global(.js) .commit__body { opacity: 0.32; transform: translateX(-6px); transition: opacity 0.5s ease, transform 0.5s cubic-bezier(0.2, 0.7, 0.2, 1); }
-    :global(.js) .commit:global(.is-lit) .commit__title, :global(.js) .commit:global(.is-lit) .commit__body { opacity: 1; transform: none; }
+    /* not yet read: text in ink-faint (still ≥4.5:1 contrast), a little to the left */
+    :global(.js) .commit__title, :global(.js) .commit__body { color: var(--ink-faint); transform: translateX(-6px); transition: color 0.5s ease, transform 0.5s cubic-bezier(0.2, 0.7, 0.2, 1); }
+    :global(.js) .commit:global(.is-lit) .commit__title { color: var(--ink); transform: none; }
+    :global(.js) .commit:global(.is-lit) .commit__body { color: var(--ink-muted); transform: none; }
     :global(.js) .commit:global(.is-lit) .commit__dot { animation: ping 0.6s ease-out; }
   }
   @container screen (max-width: 640px) {

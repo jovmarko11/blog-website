@@ -6,6 +6,9 @@
 import "@fontsource-variable/manrope";
 import "@fontsource-variable/jetbrains-mono";
 import "../styles/global.css";
+// preload the Latin subsets of both fonts so text renders in the right font on first paint
+import manropeLatin from "@fontsource-variable/manrope/files/manrope-latin-wght-normal.woff2?url";
+import monoLatin from "@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2?url";
 
 import NavBar from "../components/layout/NavBar.astro";
 import StatusBar from "../components/layout/StatusBar.astro";
@@ -25,6 +28,7 @@ interface Props {
 }
 
 const { title, description = site.description, noindex = false, statusError, image = "/og.png" } = Astro.props;
+const goat = import.meta.env.PROD ? site.analytics.goatcounter : "";
 const canonical = new URL(Astro.url.pathname, site.url).href;
 const imageUrl = new URL(image, site.url).href;
 const projectCount = (await getProjects()).length;
@@ -40,6 +44,8 @@ const fullTitle = title ? `${title} · ${site.title}` : site.title;
     <meta name="description" content={description} />
     {noindex && <meta name="robots" content="noindex" />}
     <link rel="canonical" href={canonical} />
+    <link rel="preload" href={manropeLatin} as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href={monoLatin} as="font" type="font/woff2" crossorigin />
 
     <!-- icons -->
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
@@ -59,6 +65,9 @@ const fullTitle = title ? `${title} · ${site.title}` : site.title;
     <meta property="og:image:height" content="630" />
     <meta name="twitter:card" content="summary_large_image" />
     <link rel="sitemap" href="/sitemap.xml" />
+
+    <!-- privacy-friendly visit counter (no cookies); see site.analytics in config/site.ts -->
+    {goat && <script is:inline async data-goatcounter={`https://${goat}.goatcounter.com/count`} src="https://gc.zgo.at/count.js"></script>}
     <meta name="generator" content={Astro.generator} />
 
     <!-- Apply the saved theme before first paint (no flash). Dark is the default. -->

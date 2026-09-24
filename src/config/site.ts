@@ -13,6 +13,11 @@ export const site = {
     "Software engineering, AI and scientific computing, built from scratch and explained in full.",
   lang: "en",
   location: { label: "Belgrade", coords: "44.8°N 20.5°E" },
+  /**
+   * GoatCounter site code: stats live at https://<code>.goatcounter.com.
+   * Empty string = no analytics. Only loaded in the production build, never in `npm run dev`.
+   */
+  analytics: { goatcounter: "jovmarko05" },
   links: {
     github: "https://github.com/jovmarko11",
     email: "mailto:jovmarko05@gmail.com",

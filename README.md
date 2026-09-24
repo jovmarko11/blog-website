@@ -74,3 +74,9 @@ public/                     static files served as-is: cv.pdf, og.png (social pr
 Every push to `main` builds the site and publishes it to GitHub Pages (`.github/workflows/deploy.yml`).
 One-time setup: the repository is named `jovmarko11.github.io`, and *Settings → Pages → Source* is set to **GitHub Actions**.
 If the address ever changes, update `site` in `astro.config.mjs` and `url` in `src/config/site.ts`.
+
+## Analytics & speed
+
+- **Visits:** [GoatCounter](https://www.goatcounter.com), no cookies. Stats at https://jovmarko05.goatcounter.com.
+  The script is added only in the production build; set `site.analytics.goatcounter` to `""` to turn it off.
+- **Speed & accessibility:** run Lighthouse in Chrome DevTools (incognito) or at https://pagespeed.web.dev.
