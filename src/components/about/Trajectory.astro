@@ -1,0 +1,67 @@
+---
+/**
+ * Trajectory — the About header illustration: my path drawn on graph paper,
+ * from physics at Petnica towards software, theory and (next) AI research.
+ * The line draws itself once on load; the "now" point breathes slowly.
+ */
+const W = 420, H = 280, X0 = 40, Y0 = 20, PW = 360, PH = 220;
+const pts = [
+  { x: 0.08, y: 0.52, label: "petnica" },
+  { x: 0.2, y: 0.4, label: "first sim" },
+  { x: 0.18, y: 0.8, label: "physics" },
+  { x: 0.44, y: 0.3, label: "etf" },
+  { x: 0.58, y: 0.58, label: "algorithms" },
+  { x: 0.66, y: 0.84, label: "theory" },
+  { x: 0.78, y: 0.7, label: "now", now: true },
+];
+const next = { x: 0.95, y: 0.95, label: "next: AI research" };
+const sx = (x: number) => X0 + x * PW;
+const sy = (y: number) => Y0 + (1 - y) * PH;
+const d = pts.map((p, i) => `${i ? "L" : "M"}${sx(p.x).toFixed(1)} ${sy(p.y).toFixed(1)}`).join(" ");
+const last = pts[pts.length - 1];
+const DRAW = 2.4; // seconds for the solid path
+---
+
+<figure class="traj" aria-label="My path: from physics at Petnica, through software engineering and algorithms, to theory, heading towards AI research.">
+  <svg viewBox={`0 0 ${W} ${H}`} role="img">
+    <path class="traj__axis" d={`M${X0} ${Y0} V${Y0 + PH} H${X0 + PW + 8}`} />
+    <text class="traj__ax" x={X0 + PW} y={Y0 + PH + 16} text-anchor="end">code →</text>
+    <text class="traj__ax" transform={`translate(${X0 - 12} ${Y0 + PH}) rotate(-90)`}>math &amp; physics →</text>
+
+    <path class="traj__path" d={d} pathLength="1" style={`--draw:${DRAW}s`} />
+    <path class="traj__next" d={`M${sx(last.x)} ${sy(last.y)} L${sx(next.x)} ${sy(next.y)}`} style={`--delay:${DRAW}s`} />
+
+    {pts.map((p, i) => (
+      <g class:list={["traj__pt", { "traj__pt--now": p.now }]} style={`--delay:${((i / (pts.length - 1)) * DRAW).toFixed(2)}s`}>
+        {p.now && <circle class="traj__pulse" cx={sx(p.x)} cy={sy(p.y)} r="6" />}
+        <circle cx={sx(p.x)} cy={sy(p.y)} r={p.now ? 5 : 3.5} />
+        <text x={sx(p.x) + 9} y={sy(p.y) + 4}>{p.label}</text>
+      </g>
+    ))}
+    <g class="traj__pt traj__pt--next" style={`--delay:${DRAW + 0.4}s`}>
+      <circle cx={sx(next.x)} cy={sy(next.y)} r="3.5" />
+      <text x={sx(next.x) - 8} y={sy(next.y) - 10} text-anchor="end">{next.label}</text>
+    </g>
+  </svg>
+</figure>
+
+<style>
+  .traj { margin: 0; }
+  svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .traj__axis { fill: none; stroke: var(--control-border); }
+  .traj__ax { fill: var(--ink-faint); font-family: var(--font-mono); font-size: 11px; }
+  .traj__path { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-dasharray: 1; stroke-dashoffset: 1; animation: draw var(--draw) cubic-bezier(0.5, 0, 0.3, 1) 0.3s forwards; }
+  .traj__next { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 4 5; opacity: 0; animation: fade 0.6s ease calc(var(--delay) + 0.3s) forwards; }
+  .traj__pt { opacity: 0; animation: fade 0.4s ease calc(var(--delay) + 0.3s) forwards; }
+  .traj__pt circle { fill: var(--ink-muted); }
+  .traj__pt text { fill: var(--ink-faint); font-family: var(--font-mono); font-size: 11px; }
+  .traj__pt--now circle { fill: var(--accent); }
+  .traj__pt--now text { fill: var(--accent); font-weight: 700; }
+  .traj__pt--next circle { fill: none; stroke: var(--accent); stroke-dasharray: 2 2; }
+  .traj__pt--next text { fill: var(--ink-muted); }
+  .traj__pulse { fill: none; stroke: var(--accent); stroke-width: 1.5; transform-box: fill-box; transform-origin: center; animation: pulse 2.8s ease-out infinite; animation-delay: calc(var(--delay) + 0.8s); opacity: 0; }
+
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+  @keyframes fade { to { opacity: 1; } }
+  @keyframes pulse { 0% { transform: scale(1); opacity: 0.8; } 100% { transform: scale(3); opacity: 0; } }
+</style>

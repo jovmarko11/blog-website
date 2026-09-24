@@ -93,3 +93,29 @@ code, kbd, pre, samp { font-family: var(--font-mono); font-variant-ligatures: no
   -webkit-box-decoration-break: clone;
   box-decoration-break: clone;
 }
+
+/* ---------- motion: entrance on scroll (see scripts/motion.ts) ----------
+   Only active when JS runs (html.js) and the user hasn't asked for reduced motion.
+   Add data-reveal to an element; optional style="--d: 120ms" to stagger. */
+@media (prefers-reduced-motion: no-preference) {
+  .js [data-reveal] {
+    opacity: 0;
+    transform: translateY(14px);
+    transition: opacity 0.6s ease, transform 0.6s cubic-bezier(0.2, 0.7, 0.2, 1);
+    transition-delay: var(--d, 0ms);
+  }
+  .js [data-reveal].is-in { opacity: 1; transform: none; }
+}
+
+/* Highlighted phrase: an accent underline that draws in when its block is revealed. */
+.hl {
+  color: var(--ink);
+  background-image: linear-gradient(var(--accent), var(--accent));
+  background-repeat: no-repeat;
+  background-position: 0 100%;
+  background-size: 100% 2px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .js .hl { background-size: 0% 2px; transition: background-size 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) 0.35s; }
+  .js .is-in .hl, .js .hl.is-in { background-size: 100% 2px; }
+}

@@ -1,0 +1,39 @@
+---
+/**
+ * NowGrid — four "what I'm doing now" cells. The mono key types itself in,
+ * the cells arrive one after another.
+ */
+interface Props { items: { key: string; text: string }[]; }
+const { items } = Astro.props;
+---
+
+<div class="now" data-reveal>
+  {items.map((item, i) => (
+    <div class="now__cell" data-reveal style={`--d:${i * 110}ms`}>
+      <span class="now__key" style={`--n:${item.key.length}`}>{item.key}</span>
+      <p class="now__text">{item.text}</p>
+    </div>
+  ))}
+</div>
+
+<style>
+  .now { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-m); overflow: hidden; }
+  .now__cell { padding: 16px 18px; border-bottom: 1px solid var(--line); }
+  .now__cell:nth-child(odd) { border-right: 1px solid var(--line); }
+  .now__cell:nth-last-child(-n + 2) { border-bottom: 0; }
+  .now__key { display: inline-block; font-family: var(--font-mono); font-size: 12px; line-height: 16px; color: var(--accent); white-space: nowrap; overflow: hidden; }
+  .now__text { margin-top: 6px; font-size: 16px; line-height: 24px; color: var(--ink); }
+
+  /* the key "types" itself: revealed one character at a time */
+  @media (prefers-reduced-motion: no-preference) {
+    :global(.js) .now__key { clip-path: inset(0 100% 0 0); }
+    :global(.js) .now__cell:global(.is-in) .now__key { animation: type 0.5s steps(var(--n)) calc(var(--d) + 0.25s) forwards; }
+  }
+  @keyframes type { to { clip-path: inset(0 0 0 0); } }
+
+  @container screen (max-width: 640px) {
+    .now { grid-template-columns: 1fr; }
+    .now__cell:nth-child(odd) { border-right: 0; }
+    .now__cell:nth-last-child(2) { border-bottom: 1px solid var(--line); }
+  }
+</style>
