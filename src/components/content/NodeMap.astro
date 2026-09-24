@@ -1,0 +1,46 @@
+---
+/**
+ * NodeMap — the dictionary between 2-3-4 nodes and red-black clusters, one row per node type.
+ *   <NodeMap />                      (no props: it always shows the same four rows)
+ * Each row is a one-node <TreeLab compact>: left the 2-3-4 box, right the red-black nodes.
+ * A black node together with its red children is exactly one 2-3-4 node.
+ */
+import TreeLab from "./TreeLab.astro";
+import type { Spec } from "../../lib/tree234";
+
+const rows: { label: string; note: string; spec: Spec }[] = [
+  { label: "2-node", note: "one key: one black node", spec: { k: [20] } },
+  { label: "3-node", note: "two keys: black + one red child, red on the left…", spec: { k: [20, 30], lean: "L" } },
+  { label: "3-node", note: "…or red on the right (same node, two drawings)", spec: { k: [20, 30], lean: "R" } },
+  { label: "4-node", note: "three keys: black + two red children", spec: { k: [20, 30, 40] } },
+];
+---
+
+<div class="nm">
+  <div class="nm__row nm__row--head t-label" aria-hidden="true">
+    <span></span><span>2-3-4 tree</span><span>red-black tree</span>
+  </div>
+  {rows.map((r) => (
+    <div class="nm__row">
+      <p class="nm__label"><span class="nm__name">{r.label}</span><span class="nm__note">{r.note}</span></p>
+      <div class="nm__viz"><TreeLab start={r.spec} compact autoplay={false} /></div>
+    </div>
+  ))}
+</div>
+
+<style>
+  .nm { border: 1px solid var(--line-strong); background: var(--bg); padding: 6px 16px; }
+  .nm__row { display: grid; grid-template-columns: minmax(150px, 0.9fr) minmax(0, 2fr); gap: 16px; align-items: center; padding: 10px 0; }
+  .nm__row + .nm__row { border-top: 1px solid var(--line); }
+  .nm__row--head { grid-template-columns: minmax(150px, 0.9fr) minmax(0, 1fr) minmax(0, 1fr); color: var(--ink-faint); padding-bottom: 4px; }
+  .nm__row--head span { text-align: center; }
+  .nm p.nm__label { margin: 0; max-width: none; display: flex; flex-direction: column; gap: 2px; font-size: 14px; line-height: 20px; }
+  .nm__name { font-family: var(--font-mono); font-weight: 700; font-size: 14px; color: var(--ink); }
+  .nm__note { font-size: 13px; line-height: 20px; color: var(--ink-muted); }
+  .nm__viz { min-width: 0; }
+  .nm__viz :global(.tl__svg) { max-height: 96px; }
+  @container screen (max-width: 640px) {
+    .nm__row, .nm__row--head { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+    .nm__row--head { display: none; }
+  }
+</style>

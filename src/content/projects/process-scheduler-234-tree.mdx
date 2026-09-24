@@ -15,8 +15,298 @@ featured: true
 
 ## Idea
 
+### One tree, two drawings
+
 A scheduler has to answer one question over and over: which process runs next? Here the answer lives in
 a balanced search tree. Processes are keyed by how long they have waited and how long they have run,
 so the next one to run is always at the edge of the tree, and every insert and removal stays logarithmic.
 
-<Note title="// WIP">The full write-up is on its way: node splits, the mapping between 2-3-4 and red-black trees, and the simulation loop.</Note>
+The assignment for Algorithms and Data Structures 2 at ETF was to build that run queue as a **2-3-4 tree**
+and to show that it is the same thing as a **red-black tree**. That second part is the one I found
+beautiful: the two structures look nothing alike, one has fat nodes with up to three keys, the other is a
+plain binary tree with coloured nodes, and yet they are one tree drawn in two ways. This write-up is about
+that equivalence, and about the three operations every search tree needs: search, insert and delete.
+
+## Architecture
+
+### The dictionary between the two trees
+
+A 2-3-4 tree keeps every leaf on the same level by letting nodes grow instead of letting the tree grow.
+A node holds one, two or three keys (a *2-node*, *3-node* or *4-node*, named after the number of
+children). A red-black tree is a binary tree where each node is red or black, no red node has a red
+child, and every path from the root down to a missing child passes the same number of black nodes.
+
+The bridge is one rule: **a black node together with its red children is one 2-3-4 node.**
+
+<Figure n="01" caption="Every 2-3-4 node has a red-black drawing: the middle key is black, the others hang off it as red children. A 3-node has two drawings, depending on which key is black.">
+  <NodeMap />
+</Figure>
+
+Read in that direction, the red-black rules stop being arbitrary. *No red node has a red child* means a
+cluster never has more than three keys. *Equal black heights* means every 2-3-4 leaf is on the same level,
+because each black node is exactly one 2-3-4 level. And a red node is not a separate node at all: it is a
+key that lives in its black parent's box.
+
+<Figure n="02" caption="The same tree, morphed. Drag the slider: at 2-3-4 every red key slides into its black parent's box, and the boxes are one level each.">
+  <TreeLab start={[70, 50, 40, 20, 30, 80, 10, 60, 90]} mode="morph" view={1} startCaption="Nine keys. Drag the slider to see them as a red-black tree and back." />
+</Figure>
+
+The project encodes this directly in the data structure. A node has three key slots, and **slot 1 is always
+the black key**; slots 0 and 2 are the red ones. A 2-node uses only slot 1, a 3-node uses slot 1 and one
+neighbour, and which neighbour it uses is exactly the left-or-right choice from figure 01.
+
+<CodeBlock file="Tree.h" meta="C++" start={63} code={`
+struct Node {
+    int keyCount = 0;
+    Process keys[3];
+    Node* child[4] = {nullptr, nullptr, nullptr, nullptr};
+    Node* parent = nullptr;
+`} />
+
+<CodeBlock file="Tree.h" meta="C++" start={136} highlight={[137, 145, 147]} code={`
+inline char color(int slot) {
+    return (slot == 1) ? 'B' : 'R';
+}
+
+inline void printProcess(std:: ostream& out, const Process& p, int slot) {
+    out << p.name << "(" << p.waitingTime << "," << p.executionTime << "," << color(slot) << ")";
+}
+
+inline int keySlotByRank(const Node* n, int r) {
+    if (n->keyCount == 1) return 1;
+    if (n->keyCount == 2) {
+        return (n->keys[0].id != 0) ? r : (r + 1);
+    }
+    return r; // keyCount = 3
+`} />
+
+`keySlotByRank` translates "the r-th smallest key" into a slot. For a 3-node it checks whether slot 0 is
+occupied: if it is, the keys sit in slots 0 and 1 and the red key is on the left, otherwise they sit in
+slots 1 and 2 and the red key is on the right. Colour is never stored anywhere; it falls out of the position.
+
+## Implementation
+
+### Search: colours don't matter
+
+Searching a 2-3-4 node means finding the first key that is not smaller than the one you want. If it is
+equal, you are done; otherwise you go down between the two keys that bracket it. In the red-black drawing
+it is an ordinary binary-search-tree lookup, and the colours are ignored completely.
+
+<Figure n="03" caption="Two searches on the same tree: 60 is found in a leaf, 35 falls between 30 and 50 and runs out of tree at the leaf [40].">
+  <TreeLab start={[70, 50, 40, 20, 30, 80, 10, 60, 90]} ops={[["search", 60], ["search", 35]]} />
+</Figure>
+
+<CodeBlock file="Find.cpp" meta="C++" start={4} highlight={[14, 20, 25]} code={`
+bool Tree::searchProcess(Process& out, int waitingTime, int executionTime) const {
+    if (root == nullptr) return false;
+
+    Process key = Process(waitingTime, executionTime);
+    Node* n = root;
+
+    while (n != nullptr) {
+        int r = 0;
+        while (r < n->keyCount) {
+            int slot = keySlotByRank(n, r);
+            if (Process::compareValues(key, n->keys[slot]) <= 0) break;
+            r++;
+        }
+
+        if (r < n->keyCount) {
+            int slot = keySlotByRank(n, r);
+            if (Process::compareValues(key, n->keys[slot]) == 0) {
+                out = n->keys[slot];
+                return true;
+            }
+        }
+        n = n->child[r];
+    }
+    return false;
+}
+`} />
+
+Every level costs at most three comparisons, and a 2-3-4 tree with <M tex="n" /> keys has at most
+<M tex="\log_2(n+1)" /> levels, so search is <M tex="O(\log n)" />.
+
+### Insert: split on the way, grow at the root
+
+New keys always go into a leaf. If the leaf has room, that is the whole story. If it is already a 4-node,
+it has to **split**: the middle key moves up into the parent, and the two outer keys become two separate
+2-nodes. In red-black terms a split is a *colour flip*: the black middle turns red (it is joining its
+parent's cluster), and its two red children turn black (they are now clusters of their own).
+
+<Figure n="04" caption="Three inserts into the left leaf. 10 and 30 fit, 25 finds the leaf full: 20 moves up, and 25 lands next to 30.">
+  <TreeLab start={{ k: [40], c: [{ k: [20] }, { k: [60] }] }} ops={[["insert", 10], ["insert", 30], ["insert", 25]]} startCaption="A root with two leaves." />
+</Figure>
+
+If the parent is full too, it splits as well, and so on upward. When the root itself splits, its middle key
+becomes a **new root**. That is the only way a 2-3-4 tree gets taller, and it takes every leaf down one level
+at the same moment, which is why the leaves never drift apart.
+
+<Figure n="05" caption="Inserting 55 finds a full leaf under a full root: two splits, and the tree grows by one level at the top.">
+  <TreeLab start={[10, 20, 25, 30, 45, 35, 40, 50, 65]} ops={[["insert", 55]]} />
+</Figure>
+
+The project walks down to the leaf first, remembering the path on a stack, and then splits bottom-up:
+
+<CodeBlock file="Insert.cpp" meta="C++" start={159} highlight={[169, 175, 183]} code={`
+    // dodji do lista u kome treba insert;
+    std::stack<Node*> st;
+    Node* p = root;
+
+    while (!p->isLeaf()) {
+        st.push(p);
+        int r = childRankForKey(p, k);
+        p = p->child[r];
+    }
+    // umetanje ako list nije pun
+    if (!p->isFull()) {
+        p->insertProcessIntoNode1(k);
+        return;
+    }
+
+    // 3. List je pun - mora split bottom up
+   auto splitResult = splitAndInsert(p, k, nullptr);
+    Process upKey = splitResult.first;
+    Node* upRightChild = splitResult.second;
+
+    while (!st.empty()) {
+        Node* curr = st.top();
+        st.pop();
+
+        if (!curr->isFull()) {
+`} />
+
+`splitAndInsert` does both halves of the job at once: the old node keeps the left key, a new node gets the
+right one, the new key goes into whichever half it belongs to, and the middle key is returned so the caller
+can push it up.
+
+<CodeBlock file="Insert.cpp" meta="C++" start={104} highlight={[104, 130, 138]} code={`
+    Process mean = p->keys[1];
+    Node* rightNode = new Node();
+    rightNode->parent = p->parent;
+
+    Process leftKey = p->keys[0];
+    Process rightKey = p->keys[2];
+    Node* oldChild2 = p->child[2];
+    Node* oldChild3 = p->child[3];
+
+    // resetovanje p postaje levi node
+    p->keys[1] = leftKey;
+    p->keyCount = 1;
+    p->keys[0] = p->keys[2] = Process();
+    p->child[2] = p->child[3] = nullptr;
+
+    // rightnode
+    rightNode->keys[1] = rightKey;
+    rightNode->keyCount = 1;
+    rightNode->child[0] = oldChild2;
+    rightNode->child[1] = oldChild3;
+    if (rightNode->child[0]) rightNode->child[0]->parent = rightNode;
+    if (rightNode->child[1]) rightNode->child[1]->parent = rightNode;
+
+    // ubacivanje k
+    Node* place = nullptr;
+    int r;
+    if (Process::compareKeys(k, mean) < 0) {
+        place = p;
+        r = childRankForKey(place, k);
+    }
+    else {
+        place = rightNode;
+        r = childRankForKey(rightNode, k);
+    }
+    place->insertProcessIntoNode1(k);
+`} />
+
+<Note>
+Notice that the left half keeps its key in **slot 1**, not slot 0. After a split both halves are 2-nodes,
+so their only key must be the black one. The colour flip is not a separate step in the code; it happens
+because the keys land in the right slots.
+</Note>
+
+The animations on this page run a TypeScript copy of this insert. To make sure they show what the C++ code
+does, I fed 300 random insert sequences to both and compared the resulting trees node by node, including
+every key's colour: they matched in all 300.
+
+### Delete: borrow, or merge
+
+Delete is the operation where a 2-3-4 tree is much easier to think about than a red-black tree, and it is
+also the part of the project that is not finished (more on that under Lessons). So this section describes
+the algorithm, and the animations run my own implementation of it rather than the repository's code.
+
+Keys can only disappear safely from leaves. If the key is in an inner node, it first swaps places with its
+**in-order successor**, the smallest key in the subtree to its right, which always lives in a leaf. Then
+there are three cases:
+
+- **The leaf has a spare key.** Remove it and stop. In red-black terms a red node disappears.
+- **The leaf would become empty, but a sibling has a spare key.** **Borrow**: the key that separates them
+  in the parent comes down into the empty leaf, and the sibling's nearest key goes up to replace it. In
+  red-black terms this is a rotation and a recolouring.
+- **No sibling has a spare key.** **Merge**: the separator comes down and the empty leaf fuses with its
+  sibling into one node. The parent has lost a key, and if it is now empty, the same repair repeats one
+  level up.
+
+<Figure n="06" caption="Three deletions, three cases: 20 goes from a leaf with a spare key; 50 is in the root, so its successor 60 takes its place and the empty leaf borrows from its right sibling; 70 leaves an empty leaf whose siblings have nothing to spare, so it merges.">
+  <TreeLab start={[70, 50, 40, 20, 30, 80, 10, 60, 90]} ops={[["delete", 20], ["delete", 50], ["delete", 70]]} />
+</Figure>
+
+The empty node in these animations is the 2-3-4 picture of what red-black textbooks call a **double
+black**: a spot that is missing one black node on its paths. Borrowing fixes it locally. Merging pushes it
+one level up. When it reaches the root, it simply disappears, and so does one level of the tree:
+
+<Figure n="07" caption="Deleting 1 from a tree of 2-nodes: the merge repeats at every level, the root loses its only key, and the tree gets one level shorter. This is the mirror image of the root split in figure 05.">
+  <TreeLab start={{ k: [4], c: [{ k: [2], c: [{ k: [1] }, { k: [3] }] }, { k: [6], c: [{ k: [5] }, { k: [7] }] }] }} ops={[["delete", 1]]} />
+</Figure>
+
+Growing at the root and shrinking at the root are the only two ways the height ever changes. Everything
+else rearranges keys sideways, which is why every leaf stays on the same level forever.
+
+## Results
+
+### It runs, and it stays shallow
+
+This is the real output of the program after loading seven processes and choosing *print tree*. Every
+process is printed as `name(waiting time, execution time, colour)`, with the colour taken from its slot,
+and the tree is drawn sideways with the root on the left:
+
+<Terminal lines={[
+  { cmd: "./scheduler < load-and-print.txt", out: "         E(0,0,R) F(0,0,B) G(0,0,R)\nD(0,0,R)\n         C(0,0,B)\nB(0,0,B)\n         A(0,0,B)" },
+  { cmd: "head -5 simulation.txt", out: "         F(2,0,B) G(2,0,R)\nE(2,0,B)\n         D(2,0,B)\nC(2,0,R)\n         A(0,2,R) B(2,0,B)" },
+]} />
+
+Read the first tree with figure 01 in mind: `B` and `D` form the root, a 3-node with the red key on the
+right, and `E F G` is a full 4-node with `F` as its black key. The second tree is the first step of the
+simulation with a time slice of 2: `A` has run for two units, everyone else has waited two.
+
+To see the balance in numbers, I inserted <M tex="n" /> shuffled keys with the project's own insert and
+measured the height in both drawings:
+
+<DataTable
+  n="01"
+  caption="Median of 5 random insertion orders, measured with the project's C++ insert. The red-black height is exactly twice the 2-3-4 height, well under the guaranteed bound."
+  head={["keys n", "2-3-4 levels", "red-black levels", "bound 2·log₂(n+1)"]}
+  rows={[[100, 4, 8, 13.3], [1000, 6, 12, 19.9], ["10 000", 8, 16, 26.6], ["100 000", 10, 20, 33.2], ["1 000 000", 12, 24, 39.9]]}
+  highlight={4}
+/>
+
+A million processes fit in twelve levels, so in these trees finding any one of them visits at most twelve nodes.
+
+## Lessons
+
+### What the two drawings taught me
+
+- **Two views of one structure are worth more than two structures.** Red-black rules are hard to remember
+  and easy to derive once you see them as 2-3-4 nodes. Every rotation and colour flip in a textbook is a
+  split, a borrow or a merge in disguise.
+- **Encode invariants in the layout, not in fields.** The node never stores a colour; slot 1 is black by
+  definition. That removed a whole class of bugs where a stored colour and the real shape disagree.
+- **Test the data structure alone, with random operations.** Checking every invariant after every one of
+  thousands of random operations finds in seconds what hand-written cases never reach.
+
+<Note kind="wrong">
+That last lesson is one I learned after submitting. The in-place `deleteProcess` in the repository does not
+work yet: under random inserts and deletes it corrupts the tree or crashes. The scheduler itself never
+calls it, because removing the finished process rebuilds the tree from the remaining processes, so the
+program's output is correct, but it pays <M tex="O(n \log n)" /> per step instead of <M tex="O(\log n)" />.
+Rewriting delete along the lines of figure 06, and testing it the same way as insert, is the next commit.
+</Note>

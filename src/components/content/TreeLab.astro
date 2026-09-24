@@ -1,0 +1,185 @@
+---
+/**
+ * TreeLab — a 2-3-4 tree and its red-black twin, animated step by step.
+ * Runs real insert / delete / search on a real 2-3-4 tree at build time (lib/tree234.ts),
+ * records a frame per step, and plays them in the browser (scripts/tree-lab.ts).
+ * The insert follows the C++ project exactly: split a full node first, then insert into the correct half.
+ *
+ *   <TreeLab start={[10, 20, 30]} ops={[["insert", 25], ["search", 30], ["delete", 10]]} />
+ *   <TreeLab start={[…]} mode="morph" view={1} />       one panel + slider: red-black ↔ 2-3-4
+ *
+ * Props
+ *   start          keys inserted (silently, in this order) to build the starting tree, or an explicit
+ *                  tree {k: [20, 40], c: [{k: [10]}, {k: [30]}, {k: [50]}]} (2-key nodes take lean: "L" | "R")
+ *   ops            list of ["insert" | "delete" | "search", key]; each one becomes several frames
+ *   mode           "split" (default): both views side by side · "morph": one view, a slider morphs it
+ *   view           morph only: starting position, 0 = red-black, 1 = 2-3-4 (default 1)
+ *   autoplay       start when scrolled into view; stops for good when the reader takes over (default true)
+ *   startCaption   caption of the first frame
+ *   compact        no legend, caption or panel titles, no frame: for tiny static illustrations (see NodeMap)
+ *
+ * Wrap it in <Figure> to number it. Keep starting trees ≲ 11 keys so labels stay readable.
+ * Colours: black keys use --surface-sunken, red keys --danger; highlights use the project colour.
+ * prefers-reduced-motion: no autoplay, no tweening; the reader steps with the buttons or arrow keys.
+ */
+import { buildScene, type Op, type Spec } from "../../lib/tree234";
+import { mix, svgInner, viewBoxAttr } from "../../lib/tree-render";
+
+interface Props {
+  start: number[] | Spec;
+  ops?: Op[];
+  mode?: "split" | "morph";
+  view?: number;
+  autoplay?: boolean;
+  startCaption?: string;
+  compact?: boolean;
+}
+const { start, ops = [], mode = "split", view = 1, autoplay = true, startCaption, compact = false } = Astro.props;
+
+const scene = buildScene(start, ops, startCaption);
+const f0 = scene.frames[0];
+const first = mix(f0, f0, 1);
+const many = scene.frames.length > 1;
+const morph = mode === "morph";
+
+const panels = morph
+  ? [{ key: "m", title: "", v: view, vb: scene.view.m }]
+  : [
+      { key: "t", title: "2-3-4 tree", v: 1, vb: scene.view.t },
+      { key: "rb", title: "red-black tree", v: 0, vb: scene.view.rb },
+    ];
+
+/* reserve room for the longest caption so the figure does not jump while playing */
+const plain = (s: string) => s.replace(/<[^>]+>/g, "");
+const longest = Math.max(...scene.frames.map((f) => plain(f.caption).length));
+const lines = Math.max(2, Math.ceil(longest / 72));
+const linesNarrow = Math.max(3, Math.ceil(longest / 38));
+---
+
+<div class:list={["tl", { "tl--compact": compact }]} data-tree-lab data-mode={mode} data-autoplay={autoplay ? "true" : "false"} data-start-view={view} data-kind={f0.kind} role="group" aria-label="Tree animation" style={`--cap-lines: ${lines}; --cap-lines-narrow: ${linesNarrow}`}>
+  <script is:inline type="application/json" data-scene set:html={JSON.stringify(scene)} />
+
+  <div class:list={["tl__stage", { "tl__stage--morph": morph }]}>
+    {panels.map((p) => (
+      <div class="tl__panel">
+        {p.title && !compact && <p class="tl__title t-label">{p.title}</p>}
+        <svg class="tl__svg" data-panel={p.key} viewBox={viewBoxAttr(p.vb)} style={compact ? `width:${Math.round(p.vb[2])}px` : undefined} aria-hidden="true" focusable="false">
+          <Fragment set:html={svgInner(first, p.v)} />
+        </svg>
+      </div>
+    ))}
+  </div>
+
+  {!compact && (
+    <ul class="tl__legend" aria-label="Legend">
+      <li><i class="tl__sw tl__sw--black"></i>black</li>
+      <li><i class="tl__sw tl__sw--red"></i>red (dotted ring)</li>
+    </ul>
+  )}
+
+  {morph && (
+    <div class="tl__morph">
+      <button type="button" class="tl__link" data-goto-view="0">red-black</button>
+      <input type="range" min="0" max="100" value={Math.round(view * 100)} data-view aria-label="View: red-black on the left, 2-3-4 on the right" />
+      <button type="button" class="tl__link" data-goto-view="1">2-3-4</button>
+    </div>
+  )}
+
+  {!compact && <p class="tl__caption" data-caption aria-live="polite" set:html={f0.caption} />}
+
+  {many && (
+    <div class="tl__bar">
+      <div class="tl__ctrls" role="group" aria-label="Playback">
+        <button type="button" class="tl__btn" data-act="restart" aria-label="Restart">
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M3 8a5 5 0 1 0 1.6-3.7M3 2.5V5.5h3" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" /></svg>
+        </button>
+        <button type="button" class="tl__btn" data-act="prev" aria-label="Previous step" disabled>
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M10 3 5 8l5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
+        </button>
+        <button type="button" class="tl__btn" data-act="play" aria-label={autoplay ? "Pause" : "Play"} data-state={autoplay ? "playing" : "paused"}>
+          <svg class="tl__ic-play" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M5 3l8 5-8 5z" fill="currentColor" /></svg>
+          <svg class="tl__ic-pause" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M4.5 3h2.6v10H4.5zM8.9 3h2.6v10H8.9z" fill="currentColor" /></svg>
+        </button>
+        <button type="button" class="tl__btn" data-act="next" aria-label="Next step">
+          <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="m6 3 5 5-5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
+        </button>
+      </div>
+      <span class="tl__count t-meta" data-counter>1 / {scene.frames.length}</span>
+    </div>
+  )}
+</div>
+
+<style>
+  .tl {
+    --tl-black: var(--surface-sunken);
+    --tl-on-black: var(--code-ink);
+    --tl-red: var(--danger);
+    --tl-on-red: var(--on-accent);
+    --tl-plain: var(--surface-raised);
+    --tl-hl: var(--project, var(--accent));
+    --tl-hl-soft: color-mix(in srgb, var(--project, var(--accent)) 16%, transparent);
+    border: 1px solid var(--line-strong);
+    background: var(--bg);
+    padding: 14px 16px 12px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .tl[data-kind="found"] { --tl-hl: var(--success); --tl-hl-soft: color-mix(in srgb, var(--success) 16%, transparent); }
+  .tl[data-kind="missing"], .tl[data-kind="warn"], .tl[data-kind="underflow"] { --tl-hl: var(--warning); --tl-hl-soft: color-mix(in srgb, var(--warning) 16%, transparent); }
+
+  .tl--compact { border: 0; background: transparent; padding: 0; gap: 0; }
+  .tl__stage { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0; }
+  .tl__stage--morph { grid-template-columns: minmax(0, 1fr); }
+  .tl__panel { min-width: 0; padding: 0 8px; }
+  .tl__panel + .tl__panel { border-left: 1px solid var(--line); }
+  .tl p.tl__title { color: var(--ink-faint); margin: 0 0 6px; max-width: none; font-size: 12px; line-height: 16px; }
+  .tl__svg { display: block; width: 100%; height: auto; max-height: 420px; overflow: visible; }
+  .tl--compact .tl__svg { max-width: 100%; margin: 0 auto; max-height: none; }
+
+  .tl :global(.tl-edge) { fill: none; stroke: var(--ink-faint); stroke-width: 1.5; }
+  .tl :global(.tl-box) { fill: var(--surface); stroke: var(--line-strong); stroke-width: 1.5; }
+  .tl :global(.tl-box.is-empty) { stroke-dasharray: 4 3; }
+  .tl :global(.tl-hl) { fill: var(--tl-hl-soft); stroke: var(--tl-hl); stroke-width: 2; }
+  .tl :global(.tl-pill) { stroke: var(--line-strong); stroke-width: 1.5; }
+  .tl :global(.tl-redring) { fill: none; stroke: var(--tl-on-red); stroke-width: 1.2; stroke-dasharray: 2 2; }
+  .tl :global(.tl-ghost) { fill: none; stroke: var(--ink-faint); stroke-width: 1.5; stroke-dasharray: 3 3; }
+  .tl :global(.tl-t) { font-family: var(--font-mono); font-size: 12px; font-weight: 700; text-anchor: middle; dominant-baseline: central; }
+  .tl :global(.tl-t--ghost) { fill: var(--ink-faint); font-weight: 400; }
+
+  .tl ul.tl__legend { display: flex; gap: 18px; flex-wrap: wrap; list-style: none; margin: 0; padding: 0; font-family: var(--font-mono); font-size: 12px; line-height: 18px; color: var(--ink-muted); }
+  .tl ul.tl__legend li { display: inline-flex; align-items: center; gap: 6px; padding: 0; margin: 0; }
+  .tl ul.tl__legend li::before { content: none; }
+  .tl__sw { width: 14px; height: 14px; border-radius: 7px; border: 1.5px solid var(--line-strong); display: inline-block; }
+  .tl__sw--black { background: var(--tl-black); }
+  .tl__sw--red { background: var(--tl-red); position: relative; }
+  .tl__sw--red::after { content: ""; position: absolute; inset: 2px; border: 1px dotted var(--tl-on-red); border-radius: 50%; }
+
+  .tl__morph { display: flex; align-items: center; gap: 12px; }
+  .tl__morph input[type="range"] { flex: 1; min-width: 0; accent-color: var(--project, var(--accent)); height: var(--touch-target); }
+  .tl__link { font-family: var(--font-mono); font-size: 12px; color: var(--ink-muted); background: none; border: 0; padding: 4px 2px; cursor: pointer; }
+  .tl__link:hover { color: var(--ink); }
+  .tl__link:focus-visible, .tl__btn:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+  .tl p.tl__caption { margin: 0; max-width: none; font-size: 15px; line-height: 24px; color: var(--ink-muted); min-height: calc(var(--cap-lines) * 24px); }
+  .tl__caption :global(code) { font-family: var(--font-mono); font-size: 0.9em; color: var(--ink); }
+  .tl__caption :global(b) { color: var(--ink); font-weight: 700; }
+
+  .tl__bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 8px; border-top: 1px solid var(--line); }
+  .tl__ctrls { display: flex; gap: 6px; }
+  .tl__btn { min-width: var(--touch-target); min-height: var(--touch-target); display: inline-grid; place-items: center; border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); border-radius: var(--radius-s); cursor: pointer; }
+  .tl__btn:hover:not(:disabled) { border-color: var(--project, var(--accent)); }
+  .tl__btn:disabled { opacity: 0.35; cursor: default; }
+  .tl__count { color: var(--ink-faint); }
+  .tl__btn[data-state="playing"] .tl__ic-play, .tl__btn[data-state="paused"] .tl__ic-pause { display: none; }
+
+  @container screen (max-width: 640px) {
+    .tl__stage { grid-template-columns: minmax(0, 1fr); gap: 14px; }
+    .tl__panel + .tl__panel { border-left: 0; border-top: 1px solid var(--line); padding-top: 12px; }
+    .tl { padding: 12px; }
+    .tl p.tl__caption { min-height: calc(var(--cap-lines-narrow) * 24px); }
+  }
+</style>
+
+<script>
+  import { initTreeLab } from "../../scripts/tree-lab";
+  document.querySelectorAll<HTMLElement>("[data-tree-lab]").forEach(initTreeLab);
+</script>

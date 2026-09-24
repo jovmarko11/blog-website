@@ -15,6 +15,8 @@ import Equation from "../../components/content/Equation.astro";
 import Media from "../../components/content/Media.astro";
 import Compare from "../../components/content/Compare.astro";
 import DataTable from "../../components/content/DataTable.astro";
+import TreeLab from "../../components/content/TreeLab.astro";
+import NodeMap from "../../components/content/NodeMap.astro";
 import ParseLayers from "../../components/project-art/ParseLayers.astro";
 import { getProjects } from "../../lib/projects";
 
@@ -30,7 +32,7 @@ const { project, index, prev, next } = Astro.props;
 const { Content, headings } = await render(project);
 
 /** Components available inside every project .mdx without importing them. */
-const components = { h2: SectionHeading, h3: SectionTitle, CodeBlock, Note, Figure, Terminal, M, Equation, Media, Compare, DataTable, ParseLayers };
+const components = { h2: SectionHeading, h3: SectionTitle, CodeBlock, Note, Figure, Terminal, M, Equation, Media, Compare, DataTable, TreeLab, NodeMap, ParseLayers };
 ---
 
 <ProjectLayout project={project} index={index} headings={headings} prev={prev} next={next}>
