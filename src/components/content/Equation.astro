@@ -1,0 +1,30 @@
+---
+/**
+ * Equation — a display formula, optionally numbered like a paper: (1), (2)…
+ *   <Equation n="1" tex="f(a) = \frac{1}{1 + d(a, \text{goal})}" />
+ *   <Equation tex={String.raw`\begin{aligned} x &= 1 \\ y &= 2 \end{aligned}`} />
+ * Refer to it in the text as "equation (1)".
+ */
+import "katex/dist/katex.min.css";
+import { renderTex } from "../../lib/math";
+
+interface Props {
+  tex: string;
+  /** Number shown on the right, e.g. "1". */
+  n?: string;
+}
+const { tex, n } = Astro.props;
+---
+
+<div class="eq" role="math">
+  <div class="eq__body" set:html={renderTex(tex, true)} />
+  {n && <span class="eq__n">({n})</span>}
+</div>
+
+<style>
+  .eq { display: flex; align-items: center; gap: 16px; padding: 4px 0; max-width: var(--measure); }
+  .eq__body { flex: 1; min-width: 0; overflow-x: auto; overflow-y: hidden; }
+  .eq__body :global(.katex-display) { margin: 0.6em 0; }
+  .eq__body :global(.katex) { font-size: 1.12em; color: var(--ink); }
+  .eq__n { flex: none; font-family: var(--font-mono); font-size: 13px; color: var(--ink-faint); }
+</style>

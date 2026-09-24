@@ -1,0 +1,18 @@
+---
+/**
+ * M — inline math inside a sentence.
+ *   Every operation is <M tex="O(\log n)" /> because the tree stays balanced.
+ * Write TeX in the `tex` attribute (in quotes, backslashes work as-is).
+ */
+import "katex/dist/katex.min.css";
+import { renderTex } from "../../lib/math";
+
+interface Props { tex: string }
+const { tex } = Astro.props;
+---
+
+<span class="m" set:html={renderTex(tex)} />
+
+<style>
+  .m :global(.katex) { font-size: 1.06em; color: var(--ink); }
+</style>

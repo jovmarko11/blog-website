@@ -1,0 +1,70 @@
+---
+/**
+ * Media — an image or a short looping video, optionally numbered with a caption.
+ *   import gen200 from "./evolutionary-neural-agents/gen-200.png";
+ *   <Media src={gen200} alt="Agents after 200 generations" n="02" caption="What to notice." />
+ *   <Media video="/media/agents.mp4" poster="/media/agents.jpg" alt="…" n="03" caption="…" />
+ * Images imported from src/ are optimised by Astro; strings are served as-is from public/.
+ * Prefer a muted .mp4 over a GIF (10× smaller). Videos play only while visible and never
+ * autoplay for readers who prefer reduced motion.
+ */
+import type { ImageMetadata } from "astro";
+import { Image } from "astro:assets";
+import Figure from "./Figure.astro";
+
+interface Props {
+  /** Image: an imported file (optimised) or a path under public/. */
+  src?: ImageMetadata | string;
+  /** Video: a path under public/ (.mp4 / .webm). */
+  video?: string;
+  poster?: string;
+  /** Always describe what is in the picture. */
+  alt: string;
+  n?: string;
+  caption?: string;
+  /** Show on a dark background, e.g. screenshots of dark apps. */
+  dark?: boolean;
+}
+const { src, video, poster, alt, n, caption, dark = false } = Astro.props;
+const isAsset = typeof src === "object";
+---
+
+{n && caption ? (
+  <Figure n={n} caption={caption} kind={video ? "VID." : "FIG."}>
+    <div class:list={["media", { "media--dark": dark }]}>
+      {video ? (
+        <video data-media-video src={video} poster={poster} muted loop playsinline preload="metadata" aria-label={alt}></video>
+      ) : isAsset ? (
+        <Image src={src as ImageMetadata} alt={alt} widths={[640, 960, 1440]} sizes="(max-width: 800px) 100vw, 760px" />
+      ) : (
+        <img src={src as string} alt={alt} loading="lazy" decoding="async" />
+      )}
+    </div>
+  </Figure>
+) : (
+  <div class:list={["media", "media--bare", { "media--dark": dark }]}>
+    {video ? (
+      <video data-media-video src={video} poster={poster} muted loop playsinline preload="metadata" aria-label={alt}></video>
+    ) : isAsset ? (
+      <Image src={src as ImageMetadata} alt={alt} widths={[640, 960, 1440]} sizes="(max-width: 800px) 100vw, 760px" />
+    ) : (
+      <img src={src as string} alt={alt} loading="lazy" decoding="async" />
+    )}
+  </div>
+)}
+
+<script>
+  // play looping videos only while on screen; never autoplay with reduced motion
+  const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  document.querySelectorAll<HTMLVideoElement>("[data-media-video]").forEach((v) => {
+    if (reduced) { v.controls = true; return; }
+    new IntersectionObserver(([e]) => { if (e.isIntersecting) v.play().catch(() => {}); else v.pause(); }, { threshold: 0.4 }).observe(v);
+  });
+</script>
+
+<style>
+  .media { border: 1px solid var(--line); background: var(--surface); overflow: hidden; }
+  .media--dark { background: var(--surface-sunken); }
+  .media :global(img), .media video { display: block; width: 100%; height: auto; }
+  .media--bare { margin-top: 24px; }
+</style>

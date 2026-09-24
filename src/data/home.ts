@@ -14,7 +14,7 @@ export const hero = {
     { flag: "--about", text: "how I got here, where I'm going", href: "/about/" },
     { flag: "--cv", text: "education and research (pdf)", href: site.links.cv },
     { flag: "--contact", text: site.links.email.replace("mailto:", ""), href: site.links.email },
-  ],
+  ].filter((o) => o.href), // --cv disappears while site.links.cv is empty
   /** The hollow point on the map: where the next projects will land. */
   next: { label: "next: ai-research", x: 0.93, y: 0.9 },
   /** Seconds each project stays selected during the automatic tour. */

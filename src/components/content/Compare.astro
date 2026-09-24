@@ -1,0 +1,50 @@
+---
+/**
+ * Compare — two things side by side: before / after, naive / final, generation 1 / 200.
+ *   <Compare labels={["generation 1", "generation 200"]} n="04" caption="What changed.">
+ *     <Media slot="left" src={gen1} alt="…" />
+ *     <Media slot="right" src={gen200} alt="…" />
+ *   </Compare>
+ * Any content works in the slots: images, code blocks, terminals, numbers.
+ * Stacks vertically on phones.
+ * (The labels are one `labels` prop because MDX turns named slots into props called
+ *  "left"/"right", which would overwrite props with those names.)
+ */
+import Figure from "./Figure.astro";
+
+interface Props {
+  /** Labels above the two sides; default ["before", "after"]. */
+  labels?: [string, string];
+  n?: string;
+  caption?: string;
+}
+const { labels = ["before", "after"], n, caption } = Astro.props;
+const [left, right] = labels;
+---
+
+{n && caption ? (
+  <Figure n={n} caption={caption}>
+    <div class="cmp">
+      <div class="cmp__side"><span class="cmp__label"><b>A</b>{left}</span><slot name="left" /></div>
+      <div class="cmp__side"><span class="cmp__label"><b>B</b>{right}</span><slot name="right" /></div>
+    </div>
+  </Figure>
+) : (
+  <div class="cmp cmp--bare">
+    <div class="cmp__side"><span class="cmp__label"><b>A</b>{left}</span><slot name="left" /></div>
+    <div class="cmp__side"><span class="cmp__label"><b>B</b>{right}</span><slot name="right" /></div>
+  </div>
+)}
+
+<style>
+  .cmp { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+  .cmp--bare { margin-top: 24px; }
+  .cmp__side { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .cmp__label { display: flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 12px; color: var(--ink-muted); }
+  .cmp__label b { display: grid; place-items: center; width: 20px; height: 20px; border: 1px solid var(--project, var(--accent)); color: var(--project, var(--accent)); font-size: 11px; }
+  /* nested blocks inside a side shouldn't add their own top margin */
+  .cmp__side > :global(*:not(.cmp__label)) { margin-top: 0 !important; }
+  @container screen (max-width: 640px) {
+    .cmp { grid-template-columns: minmax(0, 1fr); gap: 20px; }
+  }
+</style>

@@ -1,0 +1,72 @@
+---
+/**
+ * DataTable — results as a table: numbers right-aligned in mono, one row can be highlighted.
+ *   <DataTable
+ *     n="01" caption="Median of 5 runs, 200 agents, 1000 steps."
+ *     head={["mutation rate", "gen. to solve", "best fitness"]}
+ *     rows={[["0.05", 212, 0.91], ["0.20", 87, 0.97], ["0.40", 143, 0.88]]}
+ *     highlight={1}
+ *   />
+ * Columns whose cells are all numbers are right-aligned automatically; override with `align`.
+ * Scrolls sideways inside its frame on small screens.
+ */
+import Figure from "./Figure.astro";
+
+type Cell = string | number;
+interface Props {
+  head: string[];
+  rows: Cell[][];
+  /** Per-column alignment; default: right for numeric columns, left otherwise. */
+  align?: ("left" | "right" | "center")[];
+  /** Index of the row to highlight (e.g. the chosen configuration). */
+  highlight?: number;
+  n?: string;
+  caption?: string;
+}
+const { head, rows, align, highlight, n, caption } = Astro.props;
+
+const numeric = (c: Cell) => typeof c === "number" || /^[-+±~≈]?\s?[\d.,]+\s?(%|ms|s|x|×|MB|KB)?$/.test(String(c).trim());
+const colAlign = head.map((_, i) => align?.[i] ?? (rows.every((r) => numeric(r[i] ?? "")) ? "right" : "left"));
+---
+
+{n && caption ? (
+  <Figure n={n} caption={caption} kind="TABLE">
+    <div class="dt">
+      <table>
+        <thead><tr>{head.map((h, i) => <th style={`text-align:${colAlign[i]}`} scope="col">{h}</th>)}</tr></thead>
+        <tbody>
+          {rows.map((r, ri) => (
+            <tr class:list={{ "is-hl": ri === highlight }}>
+              {r.map((c, i) => <td class:list={{ num: colAlign[i] === "right" }} style={`text-align:${colAlign[i]}`}>{c}</td>)}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  </Figure>
+) : (
+  <div class="dt dt--bare">
+    <table>
+      <thead><tr>{head.map((h, i) => <th style={`text-align:${colAlign[i]}`} scope="col">{h}</th>)}</tr></thead>
+      <tbody>
+        {rows.map((r, ri) => (
+          <tr class:list={{ "is-hl": ri === highlight }}>
+            {r.map((c, i) => <td class:list={{ num: colAlign[i] === "right" }} style={`text-align:${colAlign[i]}`}>{c}</td>)}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </div>
+)}
+
+<style>
+  .dt { overflow-x: auto; border: 1px solid var(--line); border-radius: var(--radius-m); background: var(--surface); }
+  .dt--bare { margin-top: 24px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; line-height: 20px; }
+  th { padding: 10px 14px; border-bottom: 1px solid var(--line-strong); background: var(--bg); font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-faint); white-space: nowrap; }
+  td { padding: 9px 14px; border-bottom: 1px solid var(--line); color: var(--ink-muted); }
+  tr:last-child td { border-bottom: 0; }
+  td.num { font-family: var(--font-mono); font-size: 13px; font-variant-numeric: tabular-nums; color: var(--ink); white-space: nowrap; }
+  tr.is-hl td { background: var(--project-soft, var(--accent-soft)); color: var(--ink); }
+  tr.is-hl td:first-child { box-shadow: inset 2px 0 0 var(--project, var(--accent)); }
+</style>

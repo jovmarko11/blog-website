@@ -59,7 +59,12 @@ const Art = artEntry?.component;
   .prose :global(ul li) { position: relative; padding-left: 24px; margin-bottom: 8px; }
   .prose :global(ul li)::before { content: "→"; position: absolute; left: 0; color: var(--accent); font-family: var(--font-mono); }
   .prose :global(ul li strong) { color: var(--ink); }
-  .prose :global(.code), .prose :global(.term), .prose :global(.note), .prose :global(.figure) { margin-top: 24px; }
+  .prose :global(.code), .prose :global(.term), .prose :global(.note), .prose :global(.figure), .prose :global(.eq) { margin-top: 24px; }
+  .prose :global(ol) { margin-top: 16px; padding-left: 24px; font-size: 17px; line-height: 28px; color: var(--ink-muted); }
+  .prose :global(ol li) { margin-bottom: 8px; padding-left: 4px; }
+  .prose :global(ol li)::marker { font-family: var(--font-mono); font-size: 14px; color: var(--accent); }
+  .prose :global(blockquote) { margin: 24px 0 0; padding: 4px 0 4px 20px; border-left: 2px solid var(--project, var(--accent)); max-width: var(--measure); }
+  .prose :global(blockquote p) { margin-top: 0; color: var(--ink); font-style: italic; }
   .prose > :global(h2:first-child) { margin-top: 40px; }
 
   @container screen (max-width: 900px) {

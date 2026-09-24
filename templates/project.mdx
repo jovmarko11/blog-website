@@ -1,0 +1,102 @@
+---
+# ─────────────────────────────────────────────────────────────────────────────
+# PROJECT TEMPLATE
+# 1. Copy this file to src/content/projects/<slug>.mdx  (slug = URL, e.g. ray-tracer)
+# 2. Fill in the front-matter. Every field is checked by src/content/schema.ts:
+#    a missing or wrong value fails the build with a message saying what to fix.
+# 3. Write the five sections below; delete the examples you don't use.
+# ─────────────────────────────────────────────────────────────────────────────
+
+title: "Human title in sentence case"            # ≤ 60 chars, not the repo name
+summary: "What it is and why, in one or two sentences. Shown on the card and in search results."  # ≤ 160
+repo: jovmarko11/repo-name                       # GitHub owner/name (omit only if status: lost)
+category: systems                                # systems | ai | math | web
+stack: [C++20, CMake]                            # 1–6; the first 4 go on the card
+status: in-progress                              # shipped | in-progress | lost
+period: { start: "2026-01", end: "2026-03" }     # no end = still running
+
+# University project → course.  Anything else → context.  Never both.
+course: { code: OOP2, name: "Object-Oriented Programming 2", year: 2026 }
+# context: "Personal project"
+
+spec: { label: Agents, value: "200 per generation" }   # the one number worth showing (label ≤ 12, value ≤ 24)
+plot: { x: 0.5, y: 0.5 }       # landing map: x = metal (0) → models (1), y = practice (0) → theory (1)
+hue: amber                     # cyan | violet | lime | sky | rose | amber — the project's own color
+featured: false                # true = on the landing (hero tour + Featured grid), keep ≤ 6
+# art: parse-layers            # optional header illustration (src/components/project-art)
+# demo: https://…              # optional live demo
+draft: true                    # remove this line when the write-up is ready to publish
+---
+
+{/* Images live next to the write-up: src/content/projects/<slug>/…  and are imported here. */}
+{/* import gen1 from "./<slug>/gen-1.png"; */}
+
+## Idea
+
+### The question this project answers
+
+One or two paragraphs: the problem and why it was worth your time. For coursework, one sentence on
+**what was assigned** and one on **what you decided on top of it**.
+
+## Architecture
+
+### How the parts talk to each other
+
+A diagram or a list of the parts, each with one line on its job.
+
+- **Part A** does one thing.
+- **Part B** does another, and only talks to A.
+
+## Implementation
+
+### The interesting bit
+
+Inline math sits in a sentence: every insert is <M tex="O(\log n)" /> because the tree stays balanced.
+A numbered formula, referred to in the text as equation (1):
+
+<Equation n="1" tex="f(a) = \frac{1}{1 + d(a, \text{goal})} - \lambda \cdot \text{collisions}(a)" />
+
+<CodeBlock lang="cpp" file="src/evolution/Mutation.cpp" highlight={[3, 4]} code={`void mutate(Genome& g, double rate, double strength) {
+    for (double& w : g.weights)
+        if (random() < rate)
+            w += gaussian(0.0, strength);
+}`} />
+
+<Note>Something worth knowing that doesn't fit in the flow of the text.</Note>
+
+<Note kind="wrong">A mistake you made, and what it taught you.</Note>
+
+## Results
+
+### What came out of it
+
+<Terminal lines={[
+  { cmd: "./agents --headless --generations 200", out: "gen 200 · best 0.97 · mean 0.81" },
+]} />
+{/* Paste real output only. Add error: true to a line to show it in red. */}
+
+<DataTable
+  n="01"
+  caption="Median of 5 runs, 200 agents, 1000 steps per episode."
+  head={["mutation rate", "generations to solve", "best fitness"]}
+  rows={[["0.05", 212, 0.91], ["0.20", 87, 0.97], ["0.40", 143, 0.88]]}
+  highlight={1}
+/>
+
+{/*
+<Media src={gen1} alt="Describe what is in the picture" n="02" caption="What the reader should notice." />
+<Media video="/media/<slug>/run.mp4" poster="/media/<slug>/run.jpg" alt="…" n="03" caption="…" />
+
+<Compare labels={["generation 1", "generation 200"]} n="04" caption="The same map, 200 generations apart.">
+  <Media slot="left" src={gen1} alt="…" />
+  <Media slot="right" src={gen200} alt="…" />
+</Compare>
+*/}
+
+## Lessons
+
+### What I'd do differently
+
+1. First lesson, concrete.
+2. Second lesson.
+3. Third lesson.

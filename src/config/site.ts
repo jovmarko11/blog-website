@@ -22,7 +22,8 @@ export const site = {
     github: "https://github.com/jovmarko11",
     email: "mailto:jovmarko05@gmail.com",
     linkedin: "https://www.linkedin.com/in/marko-jovanovic-96749021b",
-    cv: "/cv.pdf",
+    /** Put the PDF in public/cv.pdf and set this to "/cv.pdf". Empty = every CV link on the site is hidden. */
+    cv: "",
   },
 } as const;
 
@@ -33,10 +34,10 @@ export type NavItem = {
   href: string;
 };
 
-/** Main navigation, rendered as IDE tabs in <NavBar>. Order = display order. */
+/** Main navigation, rendered as IDE tabs in <NavBar>. Order = display order. Items with an empty href are left out. */
 export const nav: NavItem[] = [
   { label: "index", ext: ".md", href: "/" },
   { label: "projects", ext: "/", href: "/projects/" },
   { label: "about", ext: ".md", href: "/about/" },
-  { label: "cv", ext: ".pdf", href: "/cv.pdf" },
-];
+  { label: "cv", ext: ".pdf", href: site.links.cv },
+].filter((item) => item.href);

@@ -47,15 +47,19 @@ src/
     projects/               ProjectCard, CategoryTabs (/projects)
   pages/                    one file = one route: index, about, projects/, projects/[slug], 404,
                             sitemap.xml, [styleguide] (dev only: exists in `npm run dev`, not in the build)
-public/                     static files served as-is: cv.pdf, og.png (social preview), favicons, robots.txt
+public/                     static files served as-is: og.png (social preview), favicons, robots.txt, cv.pdf (optional:
+                            set links.cv in site.ts to "/cv.pdf" to show the CV links)
+templates/project.mdx       starting point for a new write-up
 ```
 
 ## Writing a project
 
-1. Create `src/content/projects/<repo-name>.mdx` with the front-matter from `src/content/schema.ts`.
+1. Copy `templates/project.mdx` to `src/content/projects/<slug>.mdx` (it has every field and an example of every component).
 2. Write five sections as `## Idea`, `## Architecture`, `## Implementation`, `## Results`, `## Lessons`,
    each followed by a human title as `### …`. Numbers and terminal commands are added automatically.
-3. Use `<CodeBlock>`, `<Note>`, `<Figure>`, `<Terminal>` directly — no imports needed.
+3. Components work without imports: `<CodeBlock>`, `<Note>`, `<Figure>`, `<Terminal>`,
+   `<M tex="…"/>` (inline math), `<Equation n="1" tex="…"/>`, `<Media>` (image / video), `<Compare>`, `<DataTable>`.
+   Math is rendered with KaTeX at build time; a TeX typo fails the build.
 4. Pick a `hue` (project color). It is used only for the project's own content, never for UI.
 5. `plot: { x, y }` places it on the landing map; `featured: true` adds it to the hero tour and the Featured grid.
 
