@@ -1,0 +1,193 @@
+---
+/**
+ * 404 — a terminal error. The visitor tried to cd into a folder that doesn't exist.
+ * The path, the "did you mean?" suggestion and the out-of-bounds point on the map are
+ * filled in on the client from location.pathname (GitHub Pages serves this for every
+ * unknown URL). Without JS a generic version is shown.
+ */
+import BaseLayout from "../layouts/BaseLayout.astro";
+import Label from "../components/ui/Label.astro";
+import { getProjects } from "../lib/projects";
+import { nav, site } from "../config/site";
+
+const projects = await getProjects();
+
+/** Everything a mistyped URL could have meant. */
+const candidates = [
+  ...projects.map((p) => ({ slug: p.id, href: `/projects/${p.id}/`, dir: "~/projects/", title: p.data.title })),
+  { slug: "about", href: "/about/", dir: "~/", title: "about.md" },
+  { slug: "projects", href: "/projects/", dir: "~/", title: "all projects" },
+];
+
+// map: 300×240, plot box 40..240 × 60..210
+const dots = projects.map((p) => ({ x: 40 + p.data.plot.x * 200, y: 210 - p.data.plot.y * 150 }));
+---
+
+<BaseLayout title="404" description="This path doesn't exist." statusError="1 error · 404" noindex>
+  <section class="nf paper">
+    <div class="wrap nf__grid">
+      <div class="nf__main">
+        <div class="nf__term">
+          <div><span class="nf__s">$</span> cd ~/{site.handle}/<span class="nf__bad" data-nf-path>this-page</span></div>
+          <div class="nf__err">bash: cd: <span data-nf-name>this-page</span>: No such file or directory</div>
+          <div class="nf__exit">[exit 404]</div>
+        </div>
+
+        <h1 class="nf__h1">404<span class="nf__cursor" aria-hidden="true"></span></h1>
+        <p class="nf__lede">This path doesn't exist. It was moved, renamed, or it never compiled.</p>
+
+        <Label as="p" index="did you mean">?</Label>
+        <div class="nf__sug">
+          <a class="nf__best" data-nf-best hidden href="/">
+            <span class="nf__sug-p"><span data-nf-best-dir></span><b data-nf-best-slug></b></span>
+            <span class="nf__sug-d" data-nf-best-title></span>
+            <span class="nf__sug-s" data-nf-best-score></span>
+          </a>
+          <a href="/projects/">
+            <span class="nf__sug-p">~/projects/</span>
+            <span class="nf__sug-d">all projects</span>
+            <span class="nf__sug-s">{projects.length}</span>
+          </a>
+        </div>
+
+        <p class="nf__ls">
+          <span class="nf__s">$</span> ls ~
+          <span class="nf__ls-o">{nav.map((n) => <a href={n.href}>{n.label}{n.ext}</a>)}</span>
+        </p>
+      </div>
+
+      <figure class="nf__plot">
+        <svg viewBox="0 0 300 240" aria-label="A point plotted outside the axes: you are out of bounds">
+          <rect class="nf__box" x="40" y="60" width="200" height="150" />
+          <path class="nf__ax" d="M40 210 H252 M40 210 V48" />
+          <path class="nf__hd" d="M258 210 l-8 -4 v8z" /><path class="nf__hd" d="M40 42 l-4 8 h8z" />
+          <text class="nf__t" x="40" y="226">0</text><text class="nf__t" x="236" y="226">1</text><text class="nf__t" x="28" y="64">1</text>
+          {dots.map((d, i) => <circle class="nf__p" cx={d.x.toFixed(1)} cy={d.y.toFixed(1)} r="3" style={`--i:${i}`} />)}
+          <g data-nf-x transform="translate(272 24)">
+            <line class="nf__proj" x1="0" y1="0" x2="0" y2="186" data-nf-v />
+            <line class="nf__proj" x1="-232" y1="0" x2="0" y2="0" data-nf-h />
+            <path class="nf__x" d="M-6 -6 l12 12 M6 -6 l-12 12" />
+            <text class="nf__lbl" x="-12" y="16" text-anchor="end">you are here</text>
+            <text class="nf__t" x="-12" y="28" text-anchor="end" data-nf-xy>(1.16, 1.24) · out of bounds</text>
+          </g>
+        </svg>
+        <figcaption>Every page on this site is a point on the map.<br />This one isn't.</figcaption>
+      </figure>
+    </div>
+  </section>
+</BaseLayout>
+
+<script define:vars={{ candidates }}>
+  /* Similarity of two slugs: 1 − (edit distance / longer length). */
+  function similarity(a, b) {
+    const m = a.length, n = b.length;
+    if (!m || !n) return 0;
+    let prev = Array.from({ length: n + 1 }, (_, j) => j);
+    for (let i = 1; i <= m; i++) {
+      const cur = [i];
+      for (let j = 1; j <= n; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+      prev = cur;
+    }
+    return 1 - prev[n] / Math.max(m, n);
+  }
+
+  const path = decodeURIComponent(location.pathname).replace(/^\/+|\/+$/g, "") || "404";
+  const name = path.split("/").pop().toLowerCase();
+  document.querySelector("[data-nf-path]").textContent = path;
+  document.querySelector("[data-nf-name]").textContent = name;
+
+  // best match: the whole slug, or one word of it ("schedulr" → process-scheduler-234-tree)
+  let best = null, score = 0;
+  for (const c of candidates) {
+    const words = c.slug.split("-").filter((w) => w.length > 3);
+    const wordScore = name.length > 3 ? Math.max(0, ...words.map((w) => similarity(name, w))) * 0.85 : 0;
+    const s = Math.max(similarity(name, c.slug), wordScore);
+    if (s > score) { best = c; score = s; }
+  }
+  if (best && score >= 0.4) {
+    const a = document.querySelector("[data-nf-best]");
+    a.href = best.href;
+    a.querySelector("[data-nf-best-dir]").textContent = best.dir;
+    a.querySelector("[data-nf-best-slug]").textContent = best.slug;
+    a.querySelector("[data-nf-best-title]").textContent = best.title;
+    a.querySelector("[data-nf-best-score]").textContent = `${Math.round(score * 100)}% match`;
+    a.hidden = false;
+  }
+
+  // the out-of-bounds point: coordinates derived from the path, always outside [0, 1]
+  let h = 2166136261;
+  for (const ch of path) h = Math.imul(h ^ ch.charCodeAt(0), 16777619) >>> 0;
+  const x = 1.05 + ((h & 0xff) / 255) * 0.13, y = 1.1 + (((h >> 8) & 0xff) / 255) * 0.18;
+  const X = 40 + x * 200, Y = 210 - y * 150;
+  document.querySelector("[data-nf-x]").setAttribute("transform", `translate(${X.toFixed(1)} ${Y.toFixed(1)})`);
+  document.querySelector("[data-nf-v]").setAttribute("y2", (210 - Y).toFixed(1));
+  document.querySelector("[data-nf-h]").setAttribute("x1", (40 - X).toFixed(1));
+  document.querySelector("[data-nf-xy]").textContent = `(${x.toFixed(2)}, ${y.toFixed(2)}) · out of bounds`;
+</script>
+
+<style>
+  .nf { border-block: 1px solid var(--line); }
+  .nf__grid { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 56px; align-items: center; padding-block: 64px 72px; }
+
+  .nf__term { max-width: 580px; padding: 14px 16px; background: var(--surface-sunken); border: 1px solid var(--line); border-radius: var(--radius-m); font-family: var(--font-mono); font-size: 14px; line-height: 22px; color: var(--code-ink); overflow-wrap: anywhere; }
+  .nf__s { color: var(--syn-keyword); }
+  .nf__bad { text-decoration: underline wavy var(--danger); text-underline-offset: 4px; }
+  .nf__err { color: var(--code-danger); }
+  .nf__exit { color: var(--code-muted); }
+
+  .nf__h1 { margin: 28px 0 8px; font-size: 120px; line-height: 1; font-weight: 800; letter-spacing: -0.05em; }
+  .nf__cursor { display: inline-block; width: 0.36em; height: 0.72em; margin-left: 0.06em; vertical-align: -0.02em; background: var(--danger); animation: blink 1.1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  .nf__lede { max-width: 48ch; font-size: 19px; line-height: 30px; color: var(--ink-muted); margin-bottom: 32px; }
+  .nf__main :global(.label) { margin-bottom: 10px; }
+
+  .nf__sug { display: flex; flex-direction: column; max-width: 580px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius-m); overflow: hidden; }
+  .nf__sug a { display: grid; grid-template-columns: auto 1fr auto; gap: 16px; align-items: center; min-height: var(--touch-target); padding: 10px 16px; border-bottom: 1px solid var(--line); font-size: 14px; color: inherit; transition: background 0.15s; }
+  .nf__sug a:last-child { border-bottom: 0; }
+  .nf__sug a[hidden] { display: none; }
+  .nf__best { background: var(--accent-soft); }
+  .nf__sug-p { font-family: var(--font-mono); font-size: 13px; color: var(--ink-faint); }
+  .nf__sug-p b { color: var(--accent-strong); font-weight: 600; }
+  .nf__sug-d { color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .nf__sug-s { font-family: var(--font-mono); font-size: 11px; color: var(--ink-faint); }
+  .nf__sug a:hover { background: var(--surface-raised); }
+
+  .nf__ls { display: flex; flex-wrap: wrap; gap: 10px; align-items: baseline; margin-top: 20px; font-family: var(--font-mono); font-size: 14px; color: var(--ink); }
+  .nf__ls-o { display: flex; flex-wrap: wrap; gap: 16px; }
+  .nf__ls-o a { color: var(--accent); }
+  .nf__ls-o a:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+  .nf__plot { margin: 0; }
+  .nf__plot svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .nf__plot figcaption { margin-top: 10px; font-size: 13px; line-height: 20px; color: var(--ink-faint); }
+  .nf__box { fill: none; stroke: var(--line-strong); stroke-dasharray: 3 4; }
+  .nf__ax { fill: none; stroke: var(--control-border); }
+  .nf__hd { fill: var(--control-border); }
+  .nf__t { fill: var(--ink-faint); font-family: var(--font-mono); font-size: 10px; }
+  .nf__p { fill: var(--ink-muted); }
+  .nf__proj { stroke: var(--danger); stroke-dasharray: 3 4; }
+  .nf__x { stroke: var(--danger); stroke-width: 2.5; }
+  .nf__lbl { fill: var(--danger); font-family: var(--font-mono); font-size: 11px; font-weight: 700; }
+
+  /* entrance: the dots settle, then the ✕ lands outside the box */
+  @media (prefers-reduced-motion: no-preference) {
+    :global(.js) .nf__p { animation: dot-in 0.5s cubic-bezier(0.3, 1.5, 0.5, 1) both; animation-delay: calc(0.2s + var(--i) * 0.1s); transform-box: fill-box; transform-origin: center; }
+    :global(.js) .nf__x { animation: x-in 0.45s cubic-bezier(0.3, 1.6, 0.5, 1) 0.9s both; transform-box: fill-box; transform-origin: center; }
+    :global(.js) .nf__proj { stroke-dashoffset: 0; animation: fade 0.6s ease 1.2s both; }
+    :global(.js) .nf__lbl, :global(.js) [data-nf-xy] { animation: fade 0.5s ease 1.3s both; }
+    @keyframes dot-in { from { opacity: 0; transform: scale(0); } }
+    @keyframes x-in { from { opacity: 0; transform: scale(2.2) rotate(-45deg); } }
+    @keyframes fade { from { opacity: 0; } }
+  }
+  @media (prefers-reduced-motion: reduce) { .nf__cursor { animation: none; } }
+
+  @container screen (max-width: 900px) {
+    .nf__grid { grid-template-columns: minmax(0, 1fr); gap: 40px; }
+    .nf__plot { max-width: 340px; }
+  }
+  @container screen (max-width: 640px) {
+    .nf__grid { padding-block: 40px 48px; }
+    .nf__h1 { font-size: 88px; }
+    .nf__lede { font-size: 17px; line-height: 27px; }
+  }
+</style>

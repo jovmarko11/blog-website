@@ -4,6 +4,8 @@
  */
 
 export const site = {
+  /** Public address of the site (used for canonical URLs, sitemap and social previews). */
+  url: "https://jovmarko11.github.io",
   name: "Marko Jovanović",
   handle: "jovmarko05",
   title: "Marko Jovanović · ~/jovmarko05",
@@ -14,7 +16,7 @@ export const site = {
   links: {
     github: "https://github.com/jovmarko11",
     email: "mailto:jovmarko05@gmail.com",
-    linkedin: "linkedin.com/in/marko-jovanovic-96749021b", // TODO: paste your LinkedIn URL (empty = hidden)
+    linkedin: "https://www.linkedin.com/in/marko-jovanovic-96749021b",
     cv: "/cv.pdf",
   },
 } as const;

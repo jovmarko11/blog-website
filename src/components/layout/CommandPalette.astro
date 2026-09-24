@@ -1,0 +1,121 @@
+---
+/**
+ * CommandPalette — ⌘K / Ctrl+K opens a terminal-style launcher:
+ * search projects and pages, switch the theme, copy the email address.
+ * The list is rendered at build time; the script only filters and moves the selection.
+ * Opened by the ⌘K hint in the NavBar ([data-palette-open]) or the keyboard shortcut.
+ */
+import { getProjects } from "../../lib/projects";
+import { nav, site } from "../../config/site";
+
+type Item = { group: string; icon: string; label: string; meta: string; keywords: string; href?: string; action?: string };
+
+const projects = await getProjects();
+const items: Item[] = [
+  ...projects.map((p) => ({
+    group: "projects", icon: "→", label: p.data.title, meta: `~/projects/${p.id}`,
+    keywords: [p.id, p.data.category, ...p.data.stack, p.data.course?.code ?? ""].join(" "),
+    href: `/projects/${p.id}/`,
+  })),
+  ...nav.map((n) => ({ group: "pages", icon: "→", label: `${n.label}${n.ext}`, meta: n.href, keywords: n.label, href: n.href })),
+  { group: "actions", icon: "◐", label: "Switch theme", meta: "dark ↔ light", keywords: "theme dark light mode", action: "theme" },
+  { group: "actions", icon: "⧉", label: "Copy email address", meta: site.links.email.replace("mailto:", ""), keywords: "email contact mail copy", action: "copy-email" },
+  { group: "actions", icon: "↗", label: "Open GitHub", meta: "github.com/jovmarko11", keywords: "github code repositories", href: site.links.github },
+];
+const groups = [...new Set(items.map((i) => i.group))];
+---
+
+<dialog class="cp" data-palette aria-label="Command palette">
+  <div class="cp__box">
+    <label class="cp__input">
+      <span class="cp__sign" aria-hidden="true">$</span>
+      <input data-palette-input type="text" placeholder="search projects, pages, actions…" autocomplete="off" spellcheck="false" aria-controls="cp-list" aria-autocomplete="list" role="combobox" aria-expanded="true" />
+      <kbd class="cp__esc">esc</kbd>
+    </label>
+
+    <ul class="cp__list" id="cp-list" role="listbox" data-palette-list>
+      {groups.map((g) => (
+        <>
+          <li class="cp__group" role="presentation" data-group={g}>{g}</li>
+          {items.filter((i) => i.group === g).map((i) => (
+            <li
+              class="cp__item" role="option" aria-selected="false"
+              data-item data-group={g} data-href={i.href} data-action={i.action}
+              data-search={`${i.label} ${i.meta} ${i.keywords}`.toLowerCase()}
+            >
+              <span class="cp__icon" aria-hidden="true">{i.icon}</span>
+              <span class="cp__label">{i.label}</span>
+              <span class="cp__meta">{i.meta}</span>
+            </li>
+          ))}
+        </>
+      ))}
+      <li class="cp__empty" role="presentation" data-palette-empty hidden>command not found: <span data-palette-query></span></li>
+    </ul>
+
+    <div class="cp__foot">
+      <span><kbd>↑</kbd><kbd>↓</kbd> move</span>
+      <span><kbd>↵</kbd> open</span>
+      <span><kbd>esc</kbd> close</span>
+      <span class="cp__count" data-palette-count></span>
+    </div>
+  </div>
+</dialog>
+
+<script>
+  import { initPalette } from "../../scripts/palette";
+  const dialog = document.querySelector<HTMLDialogElement>("[data-palette]");
+  if (dialog) initPalette(dialog);
+</script>
+
+<style>
+  .cp {
+    width: min(640px, calc(100vw - 32px));
+    max-height: min(560px, 76vh);
+    margin: 12vh auto auto;
+    padding: 0;
+    background: var(--surface);
+    color: var(--ink);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-m);
+    box-shadow: var(--shadow-overlay);
+    overflow: hidden;
+  }
+  .cp::backdrop { background: color-mix(in srgb, var(--bg) 70%, transparent); backdrop-filter: blur(2px); }
+  .cp[open] { animation: cp-in 0.18s cubic-bezier(0.2, 0.7, 0.2, 1); }
+  .cp[open]::backdrop { animation: cp-fade 0.18s ease; }
+  @keyframes cp-in { from { opacity: 0; transform: translateY(-8px) scale(0.985); } }
+  @keyframes cp-fade { from { opacity: 0; } }
+
+  .cp__box { display: flex; flex-direction: column; max-height: inherit; font-family: var(--font-mono); }
+  .cp__input { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+  .cp__sign { color: var(--accent); font-size: 15px; }
+  .cp__input input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--ink); font: inherit; font-size: 15px; caret-color: var(--accent); }
+  .cp__input input::placeholder { color: var(--ink-faint); }
+
+  kbd { font-family: var(--font-mono); font-size: 11px; line-height: 16px; padding: 0 5px; border: 1px solid var(--control-border); border-radius: var(--radius-s); color: var(--ink-muted); }
+  .cp__esc { flex: none; }
+
+  .cp__list { flex: 1; overflow-y: auto; margin: 0; padding: 6px; list-style: none; }
+  .cp__group { padding: 10px 10px 4px; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-faint); }
+  .cp__item { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 12px; align-items: center; min-height: 38px; padding: 0 10px; border-radius: var(--radius-s); cursor: pointer; font-size: 13px; }
+  .cp__icon { color: var(--ink-faint); text-align: center; }
+  .cp__label { font-family: var(--font-sans); font-size: 14px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cp__meta { font-size: 11px; color: var(--ink-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
+  .cp__item[aria-selected="true"] { background: var(--accent-soft); box-shadow: inset 2px 0 0 var(--accent); }
+  .cp__item[aria-selected="true"] .cp__icon, .cp__item[aria-selected="true"] .cp__meta { color: var(--accent-strong); }
+  .cp__item[hidden], .cp__group[hidden], .cp__empty[hidden] { display: none; }
+  .cp__empty { padding: 20px 10px; font-size: 13px; color: var(--danger); }
+  .cp__empty span { color: var(--ink-muted); }
+
+  .cp__foot { display: flex; gap: 16px; padding: 10px 16px; border-top: 1px solid var(--line); font-size: 11px; color: var(--ink-faint); }
+  .cp__foot kbd { margin-right: 3px; }
+  .cp__count { margin-left: auto; }
+
+  @media (prefers-reduced-motion: reduce) { .cp[open], .cp[open]::backdrop { animation: none; } }
+  @media (max-width: 640px) {
+    .cp { margin-top: 8vh; }
+    .cp__meta { display: none; }
+    .cp__foot span:not(.cp__count) { display: none; }
+  }
+</style>

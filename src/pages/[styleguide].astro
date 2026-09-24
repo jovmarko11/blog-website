@@ -1,9 +1,12 @@
 ---
 /**
  * /styleguide — living reference of the components built so far.
- * Not linked from the navigation and hidden from search engines.
+ * Exists only in `npm run dev`: getStaticPaths returns nothing in a production build.
  * Add every new component here when you create it.
  */
+export function getStaticPaths() {
+  return import.meta.env.DEV ? [{ params: { styleguide: "styleguide" } }] : [];
+}
 import BaseLayout from "../layouts/BaseLayout.astro";
 import Paper from "../components/layout/Paper.astro";
 import Logo from "../components/brand/Logo.astro";
